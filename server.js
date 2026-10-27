@@ -12,11 +12,14 @@ const LIMITS = { image: 10 * 1024 * 1024, video: 30 * 1024 * 1024, audio: 10 * 1
 const THEMES = ['connecta', 'dark', 'light'];
 const FONTS = ['nunito', 'inter', 'poppins', 'quicksand', 'lexend', 'montserrat', 'comic', 'mono', 'system'];
 const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
+const OWNER = String(process.env.OWNER || '').trim().toLowerCase();
+const GRANTABLE = ['dev', 'mod', 'supporter', 'bughunter', 'early'];
+const HEX = /^#[0-9a-f]{6}$/i;
 
 (async () => {
   const store = await createStore(__dirname);
   const db = store.core;
-  db.users = db.users || {}; db.tokens = db.tokens || {}; db.requests = db.requests || []; db.groups = db.groups || {};
+  db.users = db.users || {}; db.tokens = db.tokens || {}; db.requests = db.requests || []; db.groups = db.groups || {}; db.reads = db.reads || {};
   const messages = store.messages;
   const save = () => store.saveCore(db);
 
@@ -28,7 +31,7 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
   const validName = (u) => /^[a-z0-9_.]{3,20}$/.test(u);
   const clip = (s, n) => String(s ?? '').trim().slice(0, n);
   const dmId = (a, b) => 'dm:' + [a, b].sort().join('|');
-  const newUser = (hash) => ({ hash, friends: [], created: Date.now(), displayName: '', bio: '', pronouns: '', customStatus: '', status: 'online', avatar: null, banner: null, settings: { theme: 'connecta', font: 'nunito', msgSize: 15 }, sounds: [] });
+  const newUser = (hash) => ({ hash, friends: [], created: Date.now(), displayName: '', bio: '', pronouns: '', customStatus: '', status: 'online', avatar: null, banner: null, settings: { theme: 'connecta', font: 'nunito', msgSize: 15, readReceipts: true }, sounds: [], blocked: [], badges: [] });
 
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
@@ -41,7 +44,9 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
     if (['everyone', 'alle'].includes(username)) return res.status(400).json({ error: 'Dieser Username ist reserviert.' });
     if (!password || password.length < 6) return res.status(400).json({ error: 'Passwort braucht mindestens 6 Zeichen.' });
     if (db.users[username]) return res.status(409).json({ error: 'Dieser Username ist schon vergeben.' });
+    const early = Object.keys(db.users).length < 100;
     db.users[username] = newUser(await bcrypt.hash(password, 10));
+    if (early) db.users[username].badges.push('early');
     const token = crypto.randomBytes(32).toString('hex');
     db.tokens[token] = username;
     save();
@@ -99,6 +104,15 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
   const areFriends = (a, b) => !!(db.users[a] && db.users[a].friends.includes(b));
   const owned = (id, me, kind) => { const m = id && store.meta(id); return !!(m && m.owner === me && (!kind || m.mime.startsWith(kind + '/'))); };
   const dn = (n) => (db.users[n] && db.users[n].displayName) || n;
+  const blocked = (a, b) => !!(db.users[a] && (db.users[a].blocked || []).includes(b));
+  const eitherBlocked = (a, b) => blocked(a, b) || blocked(b, a);
+  const receipts = (n) => !db.users[n] || !db.users[n].settings || db.users[n].settings.readReceipts !== false;
+  function badgesOf(n) {
+    const u = db.users[n];
+    const set = new Set((u && u.badges) || []);
+    if (n === OWNER) set.add('dev');
+    return GRANTABLE.filter((b) => set.has(b));
+  }
 
   function presence(n) {
     if (!online.has(n)) return 'offline';
@@ -108,15 +122,17 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
   function profile(name) {
     const u = db.users[name];
     if (!u) return { username: name, displayName: 'Gelöschter Nutzer', status: 'offline' };
-    return { username: name, displayName: u.displayName || '', bio: u.bio || '', pronouns: u.pronouns || '', customStatus: u.customStatus || '', avatar: u.avatar || null, banner: u.banner || null, status: presence(name) };
+    return { username: name, displayName: u.displayName || '', bio: u.bio || '', pronouns: u.pronouns || '', customStatus: u.customStatus || '', avatar: u.avatar || null, banner: u.banner || null, status: presence(name), badges: badgesOf(name), owner: name === OWNER };
   }
   function members(conv) {
+    if (conv.startsWith('note:')) return [conv.slice(5)];
     if (conv.startsWith('dm:')) return conv.slice(3).split('|');
     const g = db.groups[conv];
     return g ? g.members : [];
   }
   function canAccess(me, conv) {
     if (typeof conv !== 'string') return false;
+    if (conv.startsWith('note:')) return conv === 'note:' + me;
     if (conv.startsWith('dm:')) {
       const [a, b] = conv.slice(3).split('|');
       if (a !== me && b !== me) return false;
@@ -146,11 +162,30 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
     const outgoing = db.requests.filter((r) => r.from === me).map((r) => r.to);
     const people = {};
     [me, ...u.friends, ...incoming, ...outgoing, ...groups.flatMap((g) => g.members)].forEach((n) => { people[n] = profile(n); });
-    const last = {};
-    u.friends.forEach((f) => { const l = lastOf(dmId(me, f)); if (l) last[dmId(me, f)] = l; });
-    groups.forEach((g) => { const l = lastOf(g.id); if (l) last[g.id] = l; });
+    const myBlocked = u.blocked || [];
+    myBlocked.forEach((n) => { if (db.users[n]) people[n] = profile(n); });
+    const convs = [...u.friends.map((f) => dmId(me, f)), ...groups.map((g) => g.id), 'note:' + me];
+    const convSet = new Set(convs);
+    const last = {}, unread = {}, mentions = {};
+    for (const m of messages) {
+      if (!convSet.has(m.conv)) continue;
+      last[m.conv] = m;
+      if (m.system || m.deleted || m.from === me || myBlocked.includes(m.from)) continue;
+      if (m.at > ((db.reads[m.conv] || {})[me] || 0)) {
+        unread[m.conv] = (unread[m.conv] || 0) + 1;
+        if ((m.mentions || []).includes(me)) mentions[m.conv] = (mentions[m.conv] || 0) + 1;
+      }
+    }
+    const reads = {};
+    convs.forEach((c) => {
+      const r = db.reads[c];
+      if (!r) return;
+      reads[c] = {};
+      for (const [n, t] of Object.entries(r)) if (n === me || (receipts(me) && receipts(n))) reads[c][n] = t;
+    });
     return {
       me, myStatus: u.status || 'online', settings: u.settings || {}, sounds: u.sounds || [], people,
+      blocked: myBlocked, isOwner: me === OWNER, unread, mentions, reads,
       friends: u.friends, incoming, outgoing,
       groups: groups.map((g) => ({ id: g.id, name: g.name, owner: g.owner, members: g.members, avatar: g.avatar || null, created: g.created })),
       last,
@@ -227,7 +262,15 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
 
     socket.on('settings:update', (d = {}, cb) => {
       const s = (db.users[me].settings = db.users[me].settings || {});
-      if (THEMES.includes(d.theme)) s.theme = d.theme;
+      if (THEMES.includes(d.theme) || d.theme === 'custom') s.theme = d.theme;
+      if (d.custom && typeof d.custom === 'object') {
+        const c = s.custom || {};
+        if (['dark', 'light'].includes(d.custom.base)) c.base = d.custom.base;
+        if (HEX.test(d.custom.c1 || '')) c.c1 = d.custom.c1;
+        if (HEX.test(d.custom.c2 || '')) c.c2 = d.custom.c2;
+        s.custom = c;
+      }
+      if (typeof d.readReceipts === 'boolean') { s.readReceipts = d.readReceipts; save(); related(me).forEach(pushState); return ok(cb, { ok: true }); }
       if (FONTS.includes(d.font)) s.font = d.font;
       if (Number.isFinite(+d.msgSize)) s.msgSize = Math.min(20, Math.max(13, Math.round(+d.msgSize)));
       save();
@@ -261,13 +304,15 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
     socket.on('search', (q, cb) => {
       q = norm(q);
       if (!q) return ok(cb, []);
-      ok(cb, Object.keys(db.users).filter((n) => n !== me && (n.includes(q) || norm(db.users[n].displayName).includes(q))).slice(0, 10).map(profile));
+      ok(cb, Object.keys(db.users).filter((n) => n !== me && !blocked(n, me) && (n.includes(q) || norm(db.users[n].displayName).includes(q))).slice(0, 10).map(profile));
     });
 
     socket.on('friend:request', (to, cb) => {
       to = norm(to);
       if (!db.users[to] || to === me) return ok(cb, { error: 'Nutzer nicht gefunden.' });
       if (areFriends(me, to)) return ok(cb, { error: 'Ihr seid schon befreundet.' });
+      if (blocked(me, to)) return ok(cb, { error: 'Du hast diese Person blockiert. Hebe die Blockierung zuerst auf.' });
+      if (blocked(to, me)) return ok(cb, { error: 'Anfrage konnte nicht gesendet werden.' });
       if (db.requests.some((r) => r.from === me && r.to === to)) return ok(cb, { error: 'Anfrage schon gesendet.' });
       if (db.requests.some((r) => r.from === to && r.to === me)) return accept(to, cb);
       db.requests.push({ from: me, to, at: Date.now() });
@@ -347,6 +392,50 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
       members(conv).forEach((u) => { if (u !== me) emitTo(u, 'typing', { conv, from: me }); });
     });
 
+    // --- Gelesen ---
+    socket.on('read', (conv) => {
+      if (!canAccess(me, conv)) return;
+      const now = Date.now();
+      (db.reads[conv] = db.reads[conv] || {})[me] = now;
+      save();
+      emitTo(me, 'read', { conv, user: me, at: now });
+      if (receipts(me)) members(conv).forEach((u) => { if (u !== me && receipts(u)) emitTo(u, 'read', { conv, user: me, at: now }); });
+    });
+
+    // --- Blockieren ---
+    socket.on('block', (who, cb) => {
+      who = norm(who);
+      const u = db.users[me];
+      if (!db.users[who] || who === me) return ok(cb, { error: 'Nicht möglich.' });
+      u.blocked = u.blocked || [];
+      if (!u.blocked.includes(who)) u.blocked.push(who);
+      u.friends = u.friends.filter((f) => f !== who);
+      db.users[who].friends = db.users[who].friends.filter((f) => f !== me);
+      db.requests = db.requests.filter((r) => !((r.from === me && r.to === who) || (r.from === who && r.to === me)));
+      save(); pushState(me); pushState(who);
+      ok(cb, { ok: true });
+    });
+    socket.on('unblock', (who, cb) => {
+      who = norm(who);
+      const u = db.users[me];
+      u.blocked = (u.blocked || []).filter((x) => x !== who);
+      save(); pushState(me);
+      ok(cb, { ok: true });
+    });
+
+    // --- Abzeichen (nur Owner) ---
+    socket.on('badge:set', ({ user, badge, on } = {}, cb) => {
+      user = norm(user);
+      if (!OWNER || me !== OWNER) return ok(cb, { error: 'Nur der Owner kann Abzeichen vergeben.' });
+      if (!db.users[user] || !GRANTABLE.includes(badge)) return ok(cb, { error: 'Nicht möglich.' });
+      const u = db.users[user];
+      u.badges = (u.badges || []).filter((b) => b !== badge);
+      if (on) u.badges.push(badge);
+      save();
+      related(user).forEach(pushState);
+      ok(cb, { ok: true });
+    });
+
     // --- Gruppen ---
     socket.on('group:create', ({ name, members: list, avatar } = {}, cb) => {
       name = clip(name, 40);
@@ -414,7 +503,7 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
     ['call:offer', 'call:answer', 'call:ice', 'call:end', 'call:decline', 'call:sound'].forEach((ev) => {
       socket.on(ev, (data) => {
         const to = norm(data && data.to);
-        if (!areFriends(me, to)) return;
+        if (!areFriends(me, to) || eitherBlocked(me, to)) return;
         emitTo(to, ev, { ...data, from: me });
       });
     });
@@ -426,5 +515,5 @@ const STATUSES = ['online', 'idle', 'dnd', 'invisible'];
     });
   });
 
-  server.listen(PORT, () => console.log(`Connecta läuft auf http://localhost:${PORT} – Speicher: ${store.kind}`));
+  server.listen(PORT, () => console.log(`Connecta läuft auf http://localhost:${PORT} – Speicher: ${store.kind}${OWNER ? ' – Owner: ' + OWNER : ' – kein OWNER gesetzt'}`));
 })().catch((e) => { console.error('Start fehlgeschlagen:', e); process.exit(1); });
