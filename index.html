@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connecta</title>
+<link rel="icon" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07060b; --panel:#110e1a; --panel2:#1a1528; --line:#2a2240;
+  --text:#f3efff; --muted:#9d93b8;
+  --v1:#5b21ff; --v2:#8b4dff; --v3:#d89cff;
+  --grad:linear-gradient(135deg,#5b21ff 0%,#8b4dff 50%,#d89cff 100%);
+  --r:22px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:Nunito,system-ui,sans-serif;background:var(--bg);color:var(--text);
+  background-image:radial-gradient(800px 500px at 20% -10%,#2b1260 0%,transparent 60%),radial-gradient(700px 500px at 110% 110%,#3b1470 0%,transparent 60%)}
+button,input{font:inherit;color:inherit;border:0;outline:0}
+button{cursor:pointer}
+.hidden{display:none!important}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.btn{background:var(--grad);padding:13px 22px;border-radius:999px;font-weight:800;box-shadow:0 8px 30px -8px #8b4dffaa;transition:transform .15s,filter .15s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.1)}
+.btn.ghost{background:var(--panel2);box-shadow:none}
+.btn.red{background:linear-gradient(135deg,#ff3d7f,#ff6b6b);box-shadow:0 8px 30px -8px #ff3d7faa}
+.btn.small{padding:8px 14px;font-size:14px}
+.input{width:100%;background:var(--panel2);border:1.5px solid var(--line);padding:14px 18px;border-radius:999px;transition:border .15s}
+.input:focus{border-color:var(--v2)}
+.icon-btn{width:44px;height:44px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;transition:background .15s}
+.icon-btn:hover{background:var(--grad)}
+.icon-btn svg{width:20px;height:20px}
+
+/* Auth */
+#auth{min-height:100%;display:grid;place-items:center;padding:16px}
+.card{width:100%;max-width:400px;background:#110e1acc;backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:32px;padding:36px 28px;text-align:center}
+.card img{width:96px;filter:drop-shadow(0 0 30px #8b4dff88)}
+.card h1{font-size:40px;font-weight:800;margin:6px 0 4px}
+.card p{color:var(--muted);margin-bottom:24px}
+.card form{display:grid;gap:12px}
+.tabs{display:flex;background:var(--panel2);border-radius:999px;padding:5px;margin-bottom:18px}
+.tabs button{flex:1;padding:10px;border-radius:999px;background:none;font-weight:700;color:var(--muted)}
+.tabs button.on{background:var(--grad);color:#fff}
+.err{color:#ff7aa5;min-height:20px;font-size:14px}
+
+/* App */
+#app{height:100%;display:flex;gap:14px;padding:14px}
+.side{width:340px;flex-shrink:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;overflow:hidden}
+.side-head{display:flex;align-items:center;gap:10px;padding:18px}
+.side-head img{width:38px}
+.side-head b{font-size:22px;font-weight:800;flex:1}
+.me{padding:0 18px 12px;color:var(--muted);font-size:14px}
+.me b{color:var(--text)}
+.search{padding:0 18px 12px;position:relative}
+.results{margin-top:8px;display:grid;gap:6px}
+.section{padding:10px 18px 4px;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.list{flex:1;overflow:auto;padding:0 10px 10px}
+.item{display:flex;align-items:center;gap:12px;padding:10px;border-radius:18px;cursor:pointer;transition:background .15s}
+.item:hover{background:var(--panel2)}
+.item.on{background:linear-gradient(135deg,#5b21ff33,#d89cff22);outline:1.5px solid #8b4dff66}
+.item .name{flex:1;font-weight:700;overflow:hidden;text-overflow:ellipsis}
+.item .sub{font-size:12px;color:var(--muted);font-weight:600}
+.av{width:44px;height:44px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-weight:800;font-size:18px;position:relative;flex-shrink:0;text-transform:uppercase}
+.av.big{width:96px;height:96px;font-size:40px}
+.dot{position:absolute;right:0;bottom:0;width:13px;height:13px;border-radius:50%;background:#3ddc97;border:3px solid var(--panel)}
+.badge{background:var(--grad);border-radius:999px;font-size:12px;font-weight:800;padding:2px 8px}
+
+.main{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.empty{flex:1;display:grid;place-items:center;text-align:center;color:var(--muted);padding:20px}
+.empty img{width:120px;opacity:.9;filter:drop-shadow(0 0 40px #8b4dff66);margin-bottom:12px}
+.chat-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.chat-head .name{flex:1;font-weight:800;font-size:18px}
+.back{display:none}
+.msgs{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:6px}
+.msg{max-width:72%;padding:10px 16px;border-radius:22px;line-height:1.4;word-wrap:break-word;white-space:pre-wrap}
+.msg time{display:block;font-size:11px;opacity:.65;margin-top:3px;text-align:right}
+.msg.in{background:var(--panel2);align-self:flex-start;border-bottom-left-radius:8px}
+.msg.out{background:var(--grad);align-self:flex-end;border-bottom-right-radius:8px}
+.typing{color:var(--muted);font-size:13px;padding:0 20px 6px;min-height:20px}
+.composer{display:flex;gap:10px;padding:14px;border-top:1px solid var(--line)}
+
+/* Anruf */
+#call{position:fixed;inset:0;background:#07060bf2;backdrop-filter:blur(20px);z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px}
+#call h2{font-size:28px;font-weight:800}
+#call .status{color:var(--muted)}
+.videos{position:relative;width:100%;max-width:900px;aspect-ratio:16/9;border-radius:28px;overflow:hidden;background:var(--panel)}
+.videos video{width:100%;height:100%;object-fit:cover}
+#localV{position:absolute;right:14px;bottom:14px;width:26%;height:auto;aspect-ratio:4/3;border-radius:18px;border:2px solid var(--v2)}
+.call-btns{display:flex;gap:14px}
+.call-btns .icon-btn{width:60px;height:60px}
+.call-btns .icon-btn.red{background:linear-gradient(135deg,#ff3d7f,#ff6b6b)}
+.call-btns .icon-btn.green{background:linear-gradient(135deg,#21c97a,#3ddc97)}
+.call-btns .icon-btn.off{background:#fff;color:#000}
+.pulse{animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #8b4dff99}70%{box-shadow:0 0 0 30px #8b4dff00}100%{box-shadow:0 0 0 0 #8b4dff00}}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:12px 20px;border-radius:999px;z-index:20}
+
+@media (max-width:760px){
+  #app{padding:0;gap:0}
+  .side,.main{border-radius:0;border:0;width:100%}
+  #app.chatting .side{display:none}
+  #app:not(.chatting) .main{display:none}
+  .back{display:grid}
+  .msg{max-width:85%}
+}
+</style>
+</head>
+<body>
+
+<!-- Login / Registrierung -->
+<section id="auth">
+  <div class="card">
+    <img src="logo.svg" alt="">
+    <h1 class="grad-text">Connecta</h1>
+    <p>Chatten & telefonieren – nur mit Username.</p>
+    <div class="tabs"><button class="on" data-mode="login">Anmelden</button><button data-mode="register">Registrieren</button></div>
+    <form id="authForm">
+      <input class="input" id="u" placeholder="Username" autocomplete="username" required>
+      <input class="input" id="p" type="password" placeholder="Passwort" autocomplete="current-password" required>
+      <div class="err" id="authErr"></div>
+      <button class="btn" id="authBtn">Anmelden</button>
+    </form>
+  </div>
+</section>
+
+<!-- App -->
+<section id="app" class="hidden">
+  <aside class="side">
+    <div class="side-head">
+      <img src="logo.svg" alt=""><b class="grad-text">Connecta</b>
+      <button class="icon-btn" id="logout" title="Abmelden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/></svg></button>
+    </div>
+    <div class="me">Angemeldet als <b id="meName"></b></div>
+    <div class="search">
+      <input class="input" id="search" placeholder="🔍  Freunde per Username finden">
+      <div class="results" id="results"></div>
+    </div>
+    <div class="list">
+      <div id="reqWrap"></div>
+      <div class="section">Freunde</div>
+      <div id="friends"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="empty" id="empty"><div><img src="logo.svg" alt=""><h2 class="grad-text">Willkommen bei Connecta</h2><p>Wähle links einen Freund aus oder füge neue Freunde hinzu.</p></div></div>
+    <div id="chat" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <div class="chat-head">
+        <button class="icon-btn back" id="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <div class="av" id="chatAv"></div>
+        <div style="flex:1;min-width:0"><div class="name" id="chatName"></div><div class="sub" id="chatSub" style="font-size:13px;color:var(--muted)"></div></div>
+        <button class="icon-btn" id="audioCall" title="Anrufen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></button>
+        <button class="icon-btn" id="videoCall" title="Videoanruf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="3"/></svg></button>
+        <button class="icon-btn" id="removeFriend" title="Freund entfernen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
+      </div>
+      <div class="msgs" id="msgs"></div>
+      <div class="typing" id="typing"></div>
+      <form class="composer" id="composer">
+        <input class="input" id="text" placeholder="Nachricht schreiben…" autocomplete="off">
+        <button class="btn">Senden</button>
+      </form>
+    </div>
+  </main>
+</section>
+
+<!-- Anruf-Overlay -->
+<section id="call" class="hidden">
+  <div class="videos" id="videos"><video id="remoteV" autoplay playsinline></video><video id="localV" autoplay playsinline muted></video></div>
+  <div class="av big pulse" id="callAv"></div>
+  <h2 id="callName"></h2>
+  <div class="status" id="callStatus"></div>
+  <div class="call-btns">
+    <button class="icon-btn green hidden" id="acceptCall" title="Annehmen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></button>
+    <button class="icon-btn" id="muteBtn" title="Stumm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg></button>
+    <button class="icon-btn" id="camBtn" title="Kamera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="3"/></svg></button>
+    <button class="icon-btn red" id="hangup" title="Auflegen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  </div>
+</section>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toast = (t) => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 2800); };
+const store = { get(k){ try { return localStorage.getItem(k); } catch { return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch {} }, del(k){ try { localStorage.removeItem(k); } catch {} } };
+
+let socket, me, current = null, st = { friends: [], incoming: [], outgoing: [] }, unread = {};
+
+/* ---------- Auth ---------- */
+let mode = 'login';
+document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+  mode = b.dataset.mode;
+  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  $('authBtn').textContent = mode === 'login' ? 'Anmelden' : 'Konto erstellen';
+  $('authErr').textContent = '';
+});
+$('authForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await fetch('/api/' + mode, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('u').value, password: $('p').value }) });
+  const d = await r.json();
+  if (!r.ok) return $('authErr').textContent = d.error;
+  store.set('token', d.token); store.set('user', d.username);
+  start(d.token, d.username);
+};
+$('logout').onclick = () => { store.del('token'); store.del('user'); location.reload(); };
+
+function start(token, username) {
+  me = username;
+  socket = io({ auth: { token } });
+  socket.on('connect_error', () => { store.del('token'); location.reload(); });
+  socket.on('connect', () => { $('auth').classList.add('hidden'); $('app').classList.remove('hidden'); $('meName').textContent = '@' + me; });
+  socket.on('state', (s) => { st = s; renderLists(); if (current && !s.friends.some((f) => f.username === current)) closeChat(); else if (current) updateHead(); });
+  socket.on('message', onMessage);
+  socket.on('typing', (from) => { if (from === current) { $('typing').textContent = from + ' schreibt…'; clearTimeout(window._tt); window._tt = setTimeout(() => $('typing').textContent = '', 2000); } });
+  setupCalls();
+}
+if (store.get('token')) start(store.get('token'), store.get('user'));
+
+/* ---------- Listen ---------- */
+const av = (name, online) => `<div class="av">${esc(name[0])}${online ? '<span class="dot"></span>' : ''}</div>`;
+function renderLists() {
+  let req = '';
+  if (st.incoming.length) {
+    req += '<div class="section">Anfragen</div>' + st.incoming.map((n) => `<div class="item">${av(n)}<div class="name">${esc(n)}</div><button class="btn small" data-acc="${esc(n)}">✓</button><button class="btn small ghost" data-dec="${esc(n)}">✕</button></div>`).join('');
+  }
+  if (st.outgoing.length) {
+    req += '<div class="section">Gesendet</div>' + st.outgoing.map((n) => `<div class="item">${av(n)}<div class="name">${esc(n)}<div class="sub">wartet auf Antwort</div></div></div>`).join('');
+  }
+  $('reqWrap').innerHTML = req;
+  $('friends').innerHTML = st.friends.length ? st.friends.map((f) => `<div class="item ${f.username === current ? 'on' : ''}" data-open="${esc(f.username)}">${av(f.username, f.online)}<div class="name">${esc(f.username)}<div class="sub">${f.online ? 'online' : 'offline'}</div></div>${unread[f.username] ? `<span class="badge">${unread[f.username]}</span>` : ''}</div>`).join('') : '<p style="color:var(--muted);padding:10px;font-size:14px">Noch keine Freunde. Suche oben nach einem Username.</p>';
+}
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-acc],[data-dec],[data-open],[data-add]');
+  if (!t) return;
+  if (t.dataset.acc) socket.emit('friend:accept', t.dataset.acc, () => toast('Ihr seid jetzt Freunde 💜'));
+  if (t.dataset.dec) socket.emit('friend:decline', t.dataset.dec);
+  if (t.dataset.open) openChat(t.dataset.open);
+  if (t.dataset.add) socket.emit('friend:request', t.dataset.add, (r) => { toast(r.error || 'Anfrage gesendet!'); $('search').value = ''; $('results').innerHTML = ''; });
+});
+
+let sTimer;
+$('search').oninput = () => {
+  clearTimeout(sTimer);
+  sTimer = setTimeout(() => socket.emit('search', $('search').value, (list) => {
+    const friends = st.friends.map((f) => f.username);
+    $('results').innerHTML = list.map((n) => `<div class="item">${av(n)}<div class="name">${esc(n)}</div>${friends.includes(n) ? '<span class="sub">Freund</span>' : st.outgoing.includes(n) ? '<span class="sub">gesendet</span>' : `<button class="btn small" data-add="${esc(n)}">+ Adden</button>`}</div>`).join('') || ($('search').value ? '<p class="sub" style="padding:6px">Kein Nutzer gefunden.</p>' : '');
+  }), 250);
+};
+
+/* ---------- Chat ---------- */
+function updateHead() {
+  const f = st.friends.find((x) => x.username === current);
+  $('chatAv').innerHTML = esc(current[0]) + (f && f.online ? '<span class="dot"></span>' : '');
+  $('chatName').textContent = current;
+  $('chatSub').textContent = f && f.online ? 'online' : 'offline';
+}
+function openChat(name) {
+  current = name; unread[name] = 0;
+  $('empty').classList.add('hidden'); $('chat').classList.remove('hidden'); $('app').classList.add('chatting');
+  updateHead(); renderLists(); $('msgs').innerHTML = ''; $('typing').textContent = '';
+  socket.emit('history', name, (list) => { list.forEach(addMsg); });
+  $('text').focus();
+}
+function closeChat() { current = null; $('chat').classList.add('hidden'); $('empty').classList.remove('hidden'); $('app').classList.remove('chatting'); renderLists(); }
+$('back').onclick = closeChat;
+$('removeFriend').onclick = () => { if (confirm(current + ' wirklich als Freund entfernen?')) socket.emit('friend:remove', current); };
+
+function addMsg(m) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + (m.from === me ? 'out' : 'in');
+  d.innerHTML = esc(m.text) + `<time>${new Date(m.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</time>`;
+  $('msgs').append(d); $('msgs').scrollTop = $('msgs').scrollHeight;
+}
+function onMessage(m) {
+  const other = m.from === me ? m.to : m.from;
+  if (other === current) { addMsg(m); if (m.from !== me) $('typing').textContent = ''; }
+  else if (m.from !== me) { unread[other] = (unread[other] || 0) + 1; renderLists(); toast('💬 ' + m.from + ': ' + m.text.slice(0, 40)); }
+}
+$('composer').onsubmit = (e) => { e.preventDefault(); const t = $('text').value.trim(); if (!t) return; socket.emit('message', { to: current, text: t }); $('text').value = ''; };
+let lastTyping = 0;
+$('text').oninput = () => { if (Date.now() - lastTyping > 1200) { socket.emit('typing', current); lastTyping = Date.now(); } };
+
+/* ---------- Anrufe (WebRTC) ---------- */
+const ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+let pc = null, localStream = null, peer = null, pendingOffer = null, pendingIce = [], ringTone = null;
+
+function showCall(name, status, video) {
+  peer = name;
+  $('call').classList.remove('hidden');
+  $('callAv').textContent = name[0].toUpperCase();
+  $('callName').textContent = name;
+  $('callStatus').textContent = status;
+  $('videos').classList.toggle('hidden', !video);
+  $('callAv').classList.toggle('hidden', video);
+  $('camBtn').classList.toggle('hidden', !video);
+}
+async function getMedia(video) {
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
+  $('localV').srcObject = localStream;
+}
+function makePC() {
+  pc = new RTCPeerConnection(ICE);
+  localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+  pc.onicecandidate = (e) => e.candidate && socket.emit('call:ice', { to: peer, candidate: e.candidate });
+  pc.ontrack = (e) => { $('remoteV').srcObject = e.streams[0]; };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') { $('callStatus').textContent = 'Verbunden'; $('callAv').classList.remove('pulse'); startTimer(); }
+    if (['failed', 'disconnected'].includes(pc.connectionState)) endCall(true);
+  };
+}
+let timer;
+function startTimer() { const t0 = Date.now(); clearInterval(timer); timer = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('callStatus').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 1000); }
+
+async function call(video) {
+  if (pc) return;
+  try { await getMedia(video); } catch { return toast('Kein Zugriff auf Mikrofon/Kamera.'); }
+  showCall(current, 'Klingelt…', video);
+  $('acceptCall').classList.add('hidden');
+  makePC();
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  socket.emit('call:offer', { to: peer, sdp: offer, video });
+}
+$('audioCall').onclick = () => call(false);
+$('videoCall').onclick = () => call(true);
+
+function setupCalls() {
+  socket.on('call:offer', (d) => {
+    if (pc || pendingOffer) return socket.emit('call:decline', { to: d.from, busy: true });
+    pendingOffer = d;
+    showCall(d.from, d.video ? 'Eingehender Videoanruf…' : 'Eingehender Anruf…', false);
+    $('acceptCall').classList.remove('hidden');
+    $('callAv').classList.add('pulse');
+    ring(true);
+  });
+  socket.on('call:answer', async (d) => { if (pc && d.from === peer) { await pc.setRemoteDescription(d.sdp); flushIce(); } });
+  socket.on('call:ice', async (d) => { if (d.from !== peer) return; if (pc && pc.remoteDescription) pc.addIceCandidate(d.candidate).catch(() => {}); else pendingIce.push(d.candidate); });
+  socket.on('call:end', (d) => { if (d.from === peer) endCall(true, 'Anruf beendet'); });
+  socket.on('call:decline', (d) => { if (d.from === peer) endCall(true, d.busy ? 'Besetzt' : 'Abgelehnt'); });
+}
+function flushIce() { pendingIce.forEach((c) => pc.addIceCandidate(c).catch(() => {})); pendingIce = []; }
+
+$('acceptCall').onclick = async () => {
+  const d = pendingOffer; pendingOffer = null; ring(false);
+  try { await getMedia(d.video); } catch { toast('Kein Zugriff auf Mikrofon/Kamera.'); socket.emit('call:decline', { to: d.from }); return endCall(false); }
+  showCall(d.from, 'Verbinde…', d.video);
+  $('acceptCall').classList.add('hidden');
+  makePC();
+  await pc.setRemoteDescription(d.sdp);
+  flushIce();
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  socket.emit('call:answer', { to: peer, sdp: answer });
+};
+$('hangup').onclick = () => {
+  if (pendingOffer) { socket.emit('call:decline', { to: pendingOffer.from }); pendingOffer = null; }
+  else if (peer) socket.emit('call:end', { to: peer });
+  endCall(false);
+};
+function endCall(remote, msg) {
+  ring(false); clearInterval(timer);
+  if (pc) { pc.close(); pc = null; }
+  if (localStream) { localStream.getTracks().forEach((t) => t.stop()); localStream = null; }
+  $('remoteV').srcObject = null; $('localV').srcObject = null;
+  pendingOffer = null; pendingIce = []; peer = null;
+  $('call').classList.add('hidden');
+  $('muteBtn').classList.remove('off'); $('camBtn').classList.remove('off');
+  if (remote && msg) toast(msg);
+}
+$('muteBtn').onclick = () => { if (!localStream) return; const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled; $('muteBtn').classList.toggle('off', !t.enabled); };
+$('camBtn').onclick = () => { if (!localStream) return; const t = localStream.getVideoTracks()[0]; if (!t) return; t.enabled = !t.enabled; $('camBtn').classList.toggle('off', !t.enabled); };
+
+// Klingelton per Web Audio
+function ring(on) {
+  if (!on) { if (ringTone) { clearInterval(ringTone.i); ringTone.ctx.close(); ringTone = null; } return; }
+  try {
+    const ctx = new AudioContext();
+    const beep = () => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = 660; g.gain.setValueAtTime(.15, ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .6); o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + .6); };
+    beep(); ringTone = { ctx, i: setInterval(beep, 1500) };
+  } catch {}
+}
+</script>
+</body>
+</html>
