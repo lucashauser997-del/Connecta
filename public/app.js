@@ -33,6 +33,24 @@ const I = {
   sound: ic('<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>'),
   gear: ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
   download: ic('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>'),
+  block: ic('<circle cx="12" cy="12" r="10"/><path d="M4.9 4.9l14.2 14.2"/>'),
+  shield: ic('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'),
+  note: ic('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>'),
+};
+const TICK1 = '<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const TICK2 = '<svg class="tick" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12.5l4.5 4.5L16 7.5M11 16.5l.5.5L21 7.5"/></svg>';
+const bic = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const BADGES = {
+  dev: { name: 'Connecta-Entwickler', bg: 'linear-gradient(135deg,#5b21ff,#d89cff)', svg: bic('<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/>') },
+  mod: { name: 'Moderator', bg: 'linear-gradient(135deg,#0a84ff,#64d2ff)', svg: bic('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>') },
+  supporter: { name: 'Supporter', bg: 'linear-gradient(135deg,#ff3d7f,#ff9ec4)', svg: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-7.5-4.6-9.5-9.3C1.1 8.3 3.3 4.5 7 4.5c2 0 3.6 1.1 5 3 1.4-1.9 3-3 5-3 3.7 0 5.9 3.8 4.5 7.2C19.5 16.4 12 21 12 21z"/></svg>' },
+  bughunter: { name: 'Bug-Jäger', bg: 'linear-gradient(135deg,#0f9b5f,#a8e063)', svg: bic('<path d="M8 8a4 4 0 0 1 8 0M7 10h10v4a5 5 0 0 1-10 0zM12 10v9M3 12h4M17 12h4M4 7l3 2M20 7l-3 2M4 18l3-2M20 18l-3-2"/>') },
+  early: { name: 'Früher Nutzer', bg: 'linear-gradient(135deg,#ff8a00,#ffd36e)', svg: bic('<path d="M12 20v-8M12 12c0-4 3-7 8-7 0 5-3 7-8 7zM12 14c0-3-2-6-7-6 0 4 3 6 7 6z"/>') },
+};
+const badgeHtml = (u, small) => {
+  const b = (P(u).badges || []).filter((k) => BADGES[k]);
+  if (!b.length) return '';
+  return `<span class="badges ${small ? 'sm' : ''}">${b.map((k) => `<span class="bdg" title="${BADGES[k].name}" data-badgeinfo="${k}" style="background:${BADGES[k].bg}">${BADGES[k].svg}</span>`).join('')}</span>`;
 };
 
 // Connecta-Logo direkt eingebaut (braucht keine Datei)
@@ -134,11 +152,17 @@ const FONTS = {
 };
 const fontCss = (k) => FONTS[k] && FONTS[k][0] ? `'${FONTS[k][0]}', system-ui, sans-serif` : `system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`;
 const fontHref = (k) => `https://fonts.googleapis.com/css2?family=${FONTS[k][0].replace(/ /g, '+')}:wght@${FONTS[k][1]}&display=swap`;
-let LOOK = { theme: 'connecta', font: 'nunito', msgSize: 15 };
+let LOOK = { theme: 'connecta', font: 'nunito', msgSize: 15, custom: { base: 'dark', c1: '#5b21ff', c2: '#d89cff' } };
 try { Object.assign(LOOK, JSON.parse(store.get('look') || '{}')); } catch {}
 function applyLook(l = {}) {
   Object.assign(LOOK, Object.fromEntries(Object.entries(l).filter(([, v]) => v !== undefined && v !== null)));
-  document.documentElement.dataset.theme = LOOK.theme;
+  LOOK.custom = { base: 'dark', c1: '#5b21ff', c2: '#d89cff', ...(LOOK.custom || {}) };
+  const root = document.documentElement;
+  if (LOOK.theme === 'custom') {
+    root.dataset.theme = 'custom-' + (LOOK.custom.base === 'light' ? 'light' : 'dark');
+    root.style.setProperty('--c1', LOOK.custom.c1);
+    root.style.setProperty('--c2', LOOK.custom.c2);
+  } else { root.dataset.theme = LOOK.theme; root.style.removeProperty('--c1'); root.style.removeProperty('--c2'); }
   if (!FONTS[LOOK.font]) LOOK.font = 'nunito';
   if (FONTS[LOOK.font][0]) { const href = fontHref(LOOK.font); if ($('fontLink').href !== href) $('fontLink').href = href; }
   document.documentElement.style.setProperty('--font', fontCss(LOOK.font));
@@ -163,7 +187,7 @@ const savePrefs = () => store.set('prefs', JSON.stringify(PREFS));
 
 /* ================= Zustand ================= */
 let socket;
-let S = { me: null, myStatus: 'online', settings: {}, sounds: [], people: {}, friends: [], incoming: [], outgoing: [], groups: [], last: {} };
+let S = { me: null, myStatus: 'online', settings: {}, sounds: [], people: {}, friends: [], incoming: [], outgoing: [], groups: [], last: {}, blocked: [], reads: {}, isOwner: false };
 let view = 'chats', current = null, msgs = [], unread = {}, unreadAt = {}, panelMode = null, typingMap = {}, hasMore = {}, loadingOlder = false;
 const STATUS = {
   online: ['Online', 'Du bist für alle sichtbar.'],
@@ -178,9 +202,13 @@ const stOf = (u) => u === S.me ? (S.myStatus === 'invisible' ? 'offline' : S.myS
 const isOn = (u) => stOf(u) !== 'offline';
 const dmId = (a, b) => 'dm:' + [a, b].sort().join('|');
 const isDM = (c) => c.startsWith('dm:');
+const isNote = (c) => c.startsWith('note:');
+const isGroup = (c) => c.startsWith('g_');
+const noteId = () => 'note:' + S.me;
+const isBlocked = (u) => S.blocked.includes(u);
 const other = (c) => c.slice(3).split('|').find((x) => x !== S.me) || S.me;
 const grp = (id) => S.groups.find((g) => g.id === id);
-const membersOf = (c) => isDM(c) ? c.slice(3).split('|') : (grp(c) || { members: [] }).members;
+const membersOf = (c) => isNote(c) ? [S.me] : isDM(c) ? c.slice(3).split('|') : (grp(c) || { members: [] }).members;
 const mediaUrl = (id) => '/media/' + encodeURIComponent(id);
 function avatar(u, cls = '', dot = false) {
   const p = P(u);
@@ -191,9 +219,9 @@ function gAvatar(g, cls = '', src) {
   const inner = src ? `<img src="${src}" alt="">` : g.avatar ? `<img src="${mediaUrl(g.avatar)}" alt="">` : esc(((g.name || '#')[0] || '#').toUpperCase());
   return `<div class="av grp ${cls}">${inner}</div>`;
 }
-const convAvatar = (c, cls = '', dot = false) => isDM(c) ? avatar(other(c), cls, dot) : grp(c) ? gAvatar(grp(c), cls) : '';
-const convTitle = (c) => isDM(c) ? dn(other(c)) : (grp(c) || {}).name || 'Gruppe';
-const canOpen = (c) => isDM(c) ? S.friends.includes(other(c)) : !!grp(c);
+const convAvatar = (c, cls = '', dot = false) => isNote(c) ? `<div class="av grp note ${cls}">${I.note}</div>` : isDM(c) ? avatar(other(c), cls, dot) : grp(c) ? gAvatar(grp(c), cls) : '';
+const convTitle = (c) => isNote(c) ? 'Notizen' : isDM(c) ? dn(other(c)) : (grp(c) || {}).name || 'Gruppe';
+const canOpen = (c) => isNote(c) ? c === noteId() : isDM(c) ? S.friends.includes(other(c)) : !!grp(c);
 
 // Text formatieren: Links und @-Erwähnungen
 function fmtText(t) {
@@ -245,6 +273,9 @@ function start(token) {
     const first = !S.me;
     Object.assign(S, s);
     applyLook(s.settings || {});
+    unread = { ...(s.unread || {}) }; unreadAt = { ...(s.mentions || {}) };
+    if (current && unread[current]) { unread[current] = 0; unreadAt[current] = 0; markRead(true); }
+    bumpTitle();
     if (first) { $('auth').classList.add('hidden'); $('app').classList.remove('hidden'); }
     if (current && !canOpen(current)) closeChat();
     renderAll();
@@ -263,6 +294,11 @@ function start(token) {
     }
     if (view === 'chats') renderSide();
   });
+  socket.on('read', ({ conv, user, at }) => {
+    (S.reads[conv] = S.reads[conv] || {})[user] = at;
+    if (user === S.me && conv !== current) { unread[conv] = 0; unreadAt[conv] = 0; bumpTitle(); renderRail(); if (view === 'chats') renderChats(); }
+    if (conv === current && user !== S.me) renderMsgs();
+  });
   socket.on('typing', ({ conv, from }) => {
     (typingMap[conv] = typingMap[conv] || {})[from] = Date.now();
     renderTyping(); setTimeout(renderTyping, 2700);
@@ -276,8 +312,10 @@ function onMessage(m) {
   const mine = m.from === S.me;
   const mentioned = (m.mentions || []).includes(S.me);
   const here = m.conv === current;
+  if (!mine && isBlocked(m.from)) { if (here) { msgs.push(m); renderMsgs(); } return; }
   if (here) {
     msgs.push(m);
+    if (!mine) markRead();
     if (typingMap[m.conv]) delete typingMap[m.conv][m.from];
     renderMsgs(mine); renderTyping();
     if (panelMode === 'info') renderPanel();
@@ -293,6 +331,7 @@ function onMessage(m) {
 function notify(m, mentioned, here) {
   if (S.myStatus === 'dnd') return;
   const dm = isDM(m.conv);
+  if (isNote(m.conv)) return;
   const important = dm || mentioned;
   const title = mentioned && !dm ? `${dn(m.from)} hat dich erwähnt` : convTitle(m.conv);
   const body = (dm ? '' : (mentioned ? convTitle(m.conv) + ' · ' : dn(m.from) + ': ')) + msgLabel(m);
@@ -306,6 +345,17 @@ function notify(m, mentioned, here) {
     } catch {}
   }
 }
+
+// Gelesen-Status an den Server melden (nur wenn der Chat wirklich sichtbar ist)
+let readT = 0, readTimer = null;
+function markRead(force) {
+  if (!current || !socket || document.hidden) return;
+  clearTimeout(readTimer);
+  const go = () => { readT = Date.now(); socket.emit('read', current); };
+  if (force || Date.now() - readT > 1500) go(); else readTimer = setTimeout(go, 1500);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && current) { unread[current] = 0; markRead(true); bumpTitle(); renderRail(); } });
+window.addEventListener('focus', () => current && markRead());
 
 function bumpTitle() {
   const n = Object.values(unread).reduce((a, b) => a + b, 0);
@@ -333,7 +383,8 @@ function renderSide() {
 
 function preview(c) {
   const l = S.last[c];
-  if (!l) return 'Gruppe erstellt';
+  if (!l) return isNote(c) ? 'Nur für dich – schreib dir selbst' : 'Gruppe erstellt';
+  if (isNote(c)) return msgLabel(l);
   if (l.system) return l.text;
   const pre = l.from === S.me ? 'Du: ' : !isDM(c) ? dn(l.from) + ': ' : '';
   return pre + msgLabel(l);
@@ -344,6 +395,7 @@ function renderChats() {
   const convs = [...S.friends.map((f) => dmId(S.me, f)).filter((c) => S.last[c]), ...S.groups.map((g) => g.id)]
     .filter((c) => !q || convTitle(c).toLowerCase().includes(q))
     .sort((a, b) => ((S.last[b] || {}).at || (grp(b) || {}).created || 0) - ((S.last[a] || {}).at || (grp(a) || {}).created || 0));
+  if (!q || 'notizen'.includes(q)) convs.unshift(noteId());
   if (!convs.length) {
     $('list').innerHTML = `<div class="emptylist">${q ? 'Nichts gefunden.' : 'Noch keine Chats.<br>Schreib einem Freund oder erstelle eine Gruppe.'}${q ? '' : `<button class="btn small" data-view="friends">Freunde ansehen</button>`}</div>`;
     return;
@@ -362,6 +414,7 @@ function renderFriends() {
     h += `<div class="section label">Suchergebnisse</div>`;
     h += searchResults.length ? searchResults.map((p) => {
       if (!S.people[p.username]) S.people[p.username] = p;
+      if (isBlocked(p.username)) return `<div class="item" data-profile="${esc(p.username)}">${avatar(p.username)}<div class="ic"><div class="ir"><b>${esc(dn(p.username))}</b></div><div class="ir"><span class="pv">Blockiert</span></div></div><button class="btn small ghost" data-unblock="${esc(p.username)}">Aufheben</button></div>`;
       const u = p.username;
       const action = S.friends.includes(u) ? `<button class="btn small ghost" data-chat="${esc(u)}">Chat</button>`
         : S.outgoing.includes(u) ? `<span class="tm label">gesendet</span>`
@@ -406,7 +459,7 @@ function setView(v) {
 function openConv(c) {
   if (!canOpen(c)) return;
   if (current !== c) { msgs = []; $('text').value = ''; clearTray(); closeMention(); if (rec) stopRec(false); $('msgs').innerHTML = ''; }
-  current = c; unread[c] = 0; unreadAt[c] = 0; bumpTitle();
+  current = c; unread[c] = 0; unreadAt[c] = 0; bumpTitle(); markRead(true);
   if (view !== 'chats' && window.innerWidth > 760) { view = 'chats'; $('search').value = ''; }
   if (window.innerWidth <= 760 || panelMode === 'pins') panelMode = null;
   $('welcome').classList.add('hidden'); $('chat').classList.remove('hidden'); $('app').classList.add('chatting');
@@ -452,14 +505,16 @@ function renderHead() {
   const dm = isDM(current), g = grp(current), u = dm ? other(current) : null;
   const pins = msgs.filter((m) => m.pinned && !m.deleted).length;
   let st = '';
-  if (dm) { const s = stOf(u); st = `<span class="sdot s-${s}"></span>${esc(P(u).customStatus || STATUS[s][0])}`; }
+  if (isNote(current)) st = 'Nur für dich sichtbar';
+  else if (dm) { const s = stOf(u); st = `<span class="sdot s-${s}"></span>${esc(P(u).customStatus || STATUS[s][0])}`; }
   else if (g) { const on = g.members.filter((m) => m !== S.me && isOn(m)).length; st = esc(`${g.members.length} Mitglieder${on ? ` · ${on} online` : ''}`); }
   $('chatHead').innerHTML = `
     <button class="ibtn back" data-back>${I.back}</button>
-    <div class="who-box" data-info>${convAvatar(current, '', dm)}<div style="min-width:0"><div class="t">${esc(convTitle(current))}</div><div class="st">${st}</div></div></div>
+    <div class="who-box" data-info>${convAvatar(current, '', dm)}<div style="min-width:0"><div class="t">${esc(convTitle(current))}${dm ? badgeHtml(u, true) : ''}</div><div class="st">${st}</div></div></div>
     ${dm ? `<button class="ibtn" data-callaudio title="Anrufen">${I.phone}</button><button class="ibtn" data-callvideo title="Videoanruf">${I.video}</button>` : ''}
     <button class="ibtn ${panelMode === 'pins' ? 'on' : ''}" data-pins title="Angepinnte Nachrichten">${I.pin}${pins ? `<span class="badge">${pins}</span>` : ''}</button>
-    <button class="ibtn ${panelMode === 'info' ? 'on' : ''}" data-info title="${dm ? 'Profil' : 'Gruppeninfo'}">${I.info}</button>`;
+    <button class="ibtn ${panelMode === 'info' ? 'on' : ''}" data-info title="${dm ? 'Profil' : isNote(current) ? 'Info' : 'Gruppeninfo'}">${I.info}</button>`;
+  $('text').placeholder = isNote(current) ? 'Notiz schreiben…' : 'Nachricht schreiben…';
 }
 
 function renderPinBar() {
@@ -479,6 +534,7 @@ function waveBars(id, n) {
   return out;
 }
 const WAVE_N = 30;
+const revealed = new Set();
 function aplayerHtml(a) {
   const bars = waveBars(a.id, WAVE_N).map((h) => `<i style="height:${h}%"></i>`).join('');
   return `<div class="aplayer" data-aid="${a.id}"><button type="button" class="ap-btn" data-play="${a.id}" data-dur="${a.dur || ''}">${I.play}</button><div class="ap-mid">${a.kind === 'voice' ? '' : `<div class="ap-name">🎵 ${esc(a.name || 'Audio')}</div>`}<div class="ap-bar" data-seek="${a.id}">${bars}</div></div><span class="ap-time">${a.dur ? fmtDur(a.dur) : '0:00'}</span></div>`;
@@ -501,7 +557,9 @@ function attHtml(m) {
 
 function msgItems() {
   const items = [];
-  const group = !isDM(current), g = grp(current);
+  const group = isGroup(current), g = grp(current), note = isNote(current);
+  const reads = S.reads[current] || {};
+  const others = membersOf(current).filter((u) => u !== S.me);
   if (hasMore[current]) items.push(['lm', `<div class="loadmore">Ältere Nachrichten werden geladen…</div>`]);
   if (!msgs.length) items.push(['first', `<div class="first">${convAvatar(current, 'l')}<b style="font-size:20px;color:var(--text)">${esc(convTitle(current))}</b>Das ist der Anfang eures Chats. Sag Hallo 👋</div>`]);
   let prev = null, lastDay = '';
@@ -510,11 +568,17 @@ function msgItems() {
     if (day !== lastDay) { items.push(['d' + day, `<div class="day">${fmtDay(m.at)}</div>`]); lastDay = day; prev = null; }
     if (m.system) { items.push(['s' + m.id, `<div class="sys">${esc(m.text)}</div>`]); prev = null; continue; }
     const mine = m.from === S.me;
+    if (!mine && isBlocked(m.from) && !revealed.has(m.id)) { items.push(['b' + m.id, `<div class="sys blockedmsg" data-reveal="${m.id}">🚫 Nachricht von einer blockierten Person – <u>anzeigen</u></div>`]); prev = null; continue; }
     const cont = prev && prev.from === m.from && m.at - prev.at < 5 * 60e3;
     const canDel = mine || (g && g.owner === S.me);
     const mentioned = !mine && (m.mentions || []).includes(S.me);
     const media = !m.deleted && (m.att || []).length;
-    const meta = `<span class="meta">${m.pinned ? '📌 ' : ''}${fmtTime(m.at)}</span>`;
+    let tick = '';
+    if (mine && !note && !m.deleted && others.length) {
+      const readBy = others.filter((u) => (reads[u] || 0) >= m.at).length;
+      tick = readBy && readBy === others.length ? `<span class="ticks read" title="Gelesen">${TICK2}</span>` : readBy ? `<span class="ticks" title="Von ${readBy} gelesen">${TICK2}</span>` : `<span class="ticks" title="Gesendet">${TICK1}</span>`;
+    }
+    const meta = `<span class="meta">${m.pinned ? '📌 ' : ''}${fmtTime(m.at)}${tick}</span>`;
     const who = group && !mine && !cont ? `<div class="who" data-profile="${esc(m.from)}">${esc(dn(m.from))}</div>` : '';
     let body;
     if (m.deleted) body = `🚫 ${mine ? 'Du hast diese Nachricht gelöscht' : 'Diese Nachricht wurde gelöscht'}${meta}`;
@@ -527,6 +591,17 @@ function msgItems() {
       + `</div>`;
     items.push(['m' + m.id, html]);
     prev = m;
+  }
+  // „Gesehen“ unter der letzten Nachricht
+  const lastM = [...msgs].reverse().find((m) => !m.system);
+  if (lastM && !note) {
+    const seen = others.filter((u) => u !== lastM.from && (reads[u] || 0) >= lastM.at && !isBlocked(u));
+    if (seen.length) {
+      const html = isDM(current)
+        ? (lastM.from === S.me ? `<div class="seen out">Gesehen ${fmtDay(reads[seen[0]]) === 'Heute' ? 'um ' + fmtTime(reads[seen[0]]) : fmtShort(reads[seen[0]])}</div>` : '')
+        : `<div class="seen ${lastM.from === S.me ? 'out' : ''}" title="Gesehen von ${esc(seen.map(dn).join(', '))}">${seen.slice(0, 6).map((u) => avatar(u, 'xs')).join('')}${seen.length > 6 ? `<span>+${seen.length - 6}</span>` : ''}</div>`;
+      if (html) items.push(['seen', html]);
+    }
   }
   return items;
 }
@@ -698,7 +773,7 @@ function updateMention() {
   mStart = before.length - m[2].length - 1;
   const cands = membersOf(current).filter((u) => u !== S.me);
   mList = cands.filter((u) => u.includes(q) || dn(u).toLowerCase().includes(q)).slice(0, 8);
-  if (!isDM(current) && 'everyone'.startsWith(q)) mList.push('everyone');
+  if (isGroup(current) && 'everyone'.startsWith(q)) mList.push('everyone');
   if (!mList.length) return closeMention();
   mSel = Math.min(mSel, mList.length - 1);
   renderMention();
@@ -781,8 +856,8 @@ function profileCard(u, src = {}) {
   if (src.avatarUrl !== undefined) av = `<div class="av xl">${src.avatarUrl ? `<img src="${src.avatarUrl}" alt="">` : esc(((p.displayName || u)[0] || '?').toUpperCase())}</div>`;
   const st = stOf(u);
   return `<div class="pcard"><div class="banner" style="${bannerUrl ? `background-image:url('${bannerUrl}')` : ''}"></div><div class="pc">${av}
-    <div class="pc-name">${esc(p.displayName || u)}</div>
-    <div class="pc-user">@${esc(u)}</div>
+    <div class="pc-top"><div class="pc-name">${esc(p.displayName || u)}</div>${badgeHtml(u)}</div>
+    <div class="pc-user">@${esc(u)}${p.owner ? ' · <span class="tag">Owner</span>' : ''}</div>
     ${p.customStatus ? `<div class="pc-cs">💬 ${esc(p.customStatus)}</div>` : ''}
     ${p.pronouns ? `<span class="chip">${esc(p.pronouns)}</span>` : ''}
     ${p.bio ? `<div class="pc-sec"><div class="label">Über mich</div><p>${fmtText(p.bio)}</p></div>` : ''}
@@ -803,10 +878,13 @@ function renderPanel() {
     const pins = msgs.filter((m) => m.pinned && !m.deleted).reverse();
     body = pins.length ? pins.map((m) => `<div class="pinitem"><div class="ph">${avatar(m.from, 's')}<b>${esc(dn(m.from))}</b><span>${fmtShort(m.at)}</span></div><p>${m.text ? fmtText(m.text) : esc(msgLabel(m))}</p><div class="pa"><button class="btn small ghost" data-jump="${m.id}">Zur Nachricht</button><button class="btn small ghost" data-pin="${m.id}">Loslösen</button></div></div>`).join('')
       : `<div class="emptylist">📌<br>Noch keine angepinnten Nachrichten.<br>Fahre über eine Nachricht und klicke auf die Pinnnadel.</div>`;
+  } else if (isNote(current)) {
+    title = 'Notizen';
+    body = `<div class="ghead">${convAvatar(current, 'xl')}<div class="gn">Notizen</div><div class="pc-user">Dein privater Chat mit dir selbst</div></div><p class="muted" style="font-size:14px;margin-bottom:10px">Speichere hier Ideen, Links, Bilder oder Sprachnotizen. Niemand außer dir kann diesen Chat sehen. Mit 📌 kannst du Wichtiges anpinnen.</p>` + mediaSection();
   } else if (dm) {
     const u = other(current);
     title = 'Profil';
-    body = profileCard(u) + `<div class="pbtns row2"><button class="btn ghost" data-callaudio>${I.phone} Anrufen</button><button class="btn ghost" data-callvideo>${I.video} Video</button></div>` + mediaSection() + `<div class="pbtns"><button class="btn danger" data-unfriend="${esc(u)}">Freund entfernen</button></div>`;
+    body = profileCard(u) + `<div class="pbtns row2"><button class="btn ghost" data-callaudio>${I.phone} Anrufen</button><button class="btn ghost" data-callvideo>${I.video} Video</button></div>` + mediaSection() + `<div class="pbtns row2"><button class="btn danger" data-unfriend="${esc(u)}">Entfernen</button><button class="btn danger" data-block="${esc(u)}">${I.block} Blockieren</button></div>`;
   } else if (g) {
     title = 'Gruppeninfo';
     const owner = g.owner === S.me;
@@ -815,7 +893,7 @@ function renderPanel() {
       <div class="field"><span class="label">Gruppenname</span><div style="display:flex;gap:8px"><input class="input" id="gName" value="${esc(g.name)}" maxlength="40"><button class="btn small" data-grename>Speichern</button></div></div>
       <div class="pbtns"><button class="btn ghost" data-gadd>${I.userPlus} Mitglieder hinzufügen</button></div>
       <div class="section label" style="padding-left:2px">Mitglieder — ${g.members.length}</div>
-      ${mem.map((u) => `<div class="item" data-profile="${esc(u)}">${avatar(u, '', true)}<div class="ic"><div class="ir"><b>${esc(dn(u))}${u === S.me ? ' (Du)' : ''}</b>${u === g.owner ? '<span class="tag">Admin</span>' : ''}</div><div class="ir"><span class="pv">${esc(P(u).customStatus || '@' + u)}</span></div></div>${owner && u !== S.me ? `<button class="ibtn" data-kick="${esc(u)}" title="Entfernen">${I.x}</button>` : ''}</div>`).join('')}
+      ${mem.map((u) => `<div class="item" data-profile="${esc(u)}">${avatar(u, '', true)}<div class="ic"><div class="ir"><b>${esc(dn(u))}${u === S.me ? ' (Du)' : ''}</b>${badgeHtml(u, true)}${u === g.owner ? '<span class="tag">Admin</span>' : ''}</div><div class="ir"><span class="pv">${esc(P(u).customStatus || '@' + u)}</span></div></div>${owner && u !== S.me ? `<button class="ibtn" data-kick="${esc(u)}" title="Entfernen">${I.x}</button>` : ''}</div>`).join('')}
       ${mediaSection()}
       <div class="pbtns"><button class="btn danger" data-gleave>${I.logout} Gruppe verlassen</button></div>`;
   }
@@ -827,7 +905,7 @@ function renderPanel() {
 function renderStatusMenu() {
   const p = P(S.me);
   $('statusMenu').innerHTML = `<div class="pbanner" style="${p.banner ? `background-image:url('${mediaUrl(p.banner)}')` : ''}"></div>
-    <div class="phead">${avatar(S.me, 'm', true)}<div class="pname">${esc(dn(S.me))}</div><div class="pc-user">@${esc(S.me)}</div></div>
+    <div class="phead">${avatar(S.me, 'm', true)}<div class="pname">${esc(dn(S.me))} ${badgeHtml(S.me, true)}</div><div class="pc-user">@${esc(S.me)}</div></div>
     <div class="cs"><input class="input" id="csInput" maxlength="60" placeholder="💬 Status-Text festlegen…" value="${esc(p.customStatus || '')}"></div>
     <div class="opts">${['online', 'idle', 'dnd', 'invisible'].map((k) => `<button class="opt ${S.myStatus === k ? 'on' : ''}" data-setstatus="${k}"><span class="sdot s-${k === 'invisible' ? 'offline' : k}"></span><div><b>${STATUS[k][0]}</b><small>${STATUS[k][1]}</small></div></button>`).join('')}</div>
     <div class="opts"><button class="opt" data-opensettings="profile">${I.edit}<div><b>Profil bearbeiten</b></div></button><button class="opt" data-opensettings="look">${I.gear}<div><b>Einstellungen</b></div></button></div>`;
@@ -872,7 +950,14 @@ function openProfile(u) {
   else if (inc) btn = `<div class="pbtns"><button class="btn" data-acc="${esc(u)}">Anfrage annehmen</button></div>`;
   else if (out) btn = `<div class="pbtns"><button class="btn ghost" disabled>Anfrage gesendet</button></div>`;
   else btn = `<div class="pbtns"><button class="btn" data-add="${esc(u)}">${I.userPlus} Freund hinzufügen</button></div>`;
-  openModal(`${mHead('Profil')}<div class="mbody">${profileCard(u)}${btn}</div>`);
+  if (isBlocked(u)) btn = `<div class="pbtns"><button class="btn ghost" data-unblock="${esc(u)}">Blockierung aufheben</button></div>`;
+  else btn += `<div class="pbtns"><button class="btn danger" data-block="${esc(u)}">${I.block} Blockieren</button></div>`;
+  let own = '';
+  if (S.isOwner) {
+    const has = P(u).badges || [];
+    own = `<div class="pc-sec"><div class="label" style="margin-bottom:8px">Abzeichen vergeben (nur Owner)</div><div class="bgrant">${Object.entries(BADGES).map(([k, b]) => `<button class="bgr ${has.includes(k) ? 'on' : ''}" data-grant="${k}" data-grantuser="${esc(u)}"><span class="bdg" style="background:${b.bg}">${b.svg}</span>${b.name}</button>`).join('')}</div></div>`;
+  }
+  openModal(`${mHead('Profil')}<div class="mbody">${profileCard(u)}${btn}${own}</div>`);
 }
 
 // Lightbox für Bilder
@@ -892,7 +977,7 @@ function openSettings(tab = 'profile') {
   renderSettings();
 }
 function renderSettings() {
-  const T = [['profile', 'Mein Profil'], ['look', 'Darstellung'], ['sounds', 'Soundboard'], ['notify', 'Benachrichtigungen'], ['account', 'Konto']];
+  const T = [['profile', 'Mein Profil'], ['look', 'Darstellung'], ['sounds', 'Soundboard'], ['notify', 'Benachrichtigungen'], ['privacy', 'Privatsphäre'], ['account', 'Konto']];
   const tabs = `<div class="stabs">${T.map(([k, t]) => `<button class="${sTab === k ? 'on' : ''}" data-stab="${k}">${t}</button>`).join('')}</div>`;
   let body = '';
   const p = P(S.me);
@@ -911,7 +996,15 @@ function renderSettings() {
   } else if (sTab === 'look') {
     loadAllFonts();
     const th = [['connecta', 'Connecta', '#07060b', '#1f1830', 'radial-gradient(circle at 80% 0%,#5b21ff66,transparent 70%)'], ['dark', 'Dunkel', '#18191c', '#2b2d31', 'none'], ['light', 'Hell', '#f6f3fc', '#ffffff', 'none']];
-    body = `<div class="label" style="margin-bottom:10px">Farbschema</div><div class="themes">${th.map(([k, t, bg, inb, img]) => `<div class="tcard ${LOOK.theme === k ? 'on' : ''}" data-theme-pick="${k}"><div class="tprev" style="background:${bg};background-image:${img};border:1px solid #8882"><i style="background:${inb}"></i><i></i></div>${t}</div>`).join('')}</div>
+    const cu = LOOK.custom;
+    const PRESETS = [['#5b21ff', '#d89cff', 'Lila'], ['#0066ff', '#00d4ff', 'Ozean'], ['#ff3d7f', '#ffb347', 'Sonnenuntergang'], ['#0f9b5f', '#a8e063', 'Wald'], ['#ff4e00', '#ec9f05', 'Feuer'], ['#ff00a8', '#ffa6e1', 'Pink'], ['#00b09b', '#96c93d', 'Minze'], ['#e52d27', '#b31217', 'Rot'], ['#4b4b5a', '#a3a3b5', 'Grau'], ['#7f00ff', '#e100ff', 'Neon']];
+    body = `<div class="label" style="margin-bottom:10px">Farbschema</div><div class="themes four">${th.map(([k, t, bg, inb, img]) => `<div class="tcard ${LOOK.theme === k ? 'on' : ''}" data-theme-pick="${k}"><div class="tprev" style="background:${bg};background-image:${img};border:1px solid #8882"><i style="background:${inb}"></i><i style="background:linear-gradient(135deg,#5b21ff,#d89cff)"></i></div>${t}</div>`).join('')}<div class="tcard ${LOOK.theme === 'custom' ? 'on' : ''}" data-theme-pick="custom"><div class="tprev" style="background:${cu.base === 'light' ? '#f6f6f9' : '#111116'};background-image:radial-gradient(circle at 80% 0%,${cu.c1}55,transparent 70%);border:1px solid #8882"><i style="background:${cu.base === 'light' ? '#fff' : '#22222a'}"></i><i style="background:linear-gradient(135deg,${cu.c1},${cu.c2})"></i></div>🎨 Eigenes</div></div>
+      ${LOOK.theme === 'custom' ? `<div class="custombox">
+        <div class="cb-row"><span class="label">Basis</span><div class="seg"><button class="${cu.base !== 'light' ? 'on' : ''}" data-cbase="dark">🌙 Dunkel</button><button class="${cu.base === 'light' ? 'on' : ''}" data-cbase="light">☀️ Hell</button></div></div>
+        <div class="cb-row"><span class="label">Verlauf</span><div class="cpick"><label><input type="color" id="c1" value="${cu.c1}"><span>Farbe 1</span></label><div class="gradprev" style="background:linear-gradient(135deg,${cu.c1},${cu.c2})"></div><label><input type="color" id="c2" value="${cu.c2}"><span>Farbe 2</span></label></div></div>
+        <div class="label" style="margin:14px 0 8px">Vorlagen</div>
+        <div class="presets">${PRESETS.map(([a, b, n]) => `<button class="preset" title="${n}" data-preset="${a},${b}" style="background:linear-gradient(135deg,${a},${b})"></button>`).join('')}</div>
+      </div>` : ''}
       <div class="label" style="margin:22px 0 10px">Schriftart</div>
       <div class="fonts">${Object.entries(FONTS).map(([k, f]) => `<div class="fcard ${LOOK.font === k ? 'on' : ''}" data-font-pick="${k}" style="font-family:${fontCss(k).replace(/"/g, "'")}"><div class="fa">Aa Bb</div><div class="fn">${f[2]}</div></div>`).join('')}</div>
       <div class="label" style="margin:22px 0 10px">Nachrichtengröße — <span id="msgSizeV">${LOOK.msgSize}px</span></div>
@@ -931,6 +1024,12 @@ function renderSettings() {
     body = `<div class="toggle ${PREFS.sound ? 'on' : ''}" data-pref="sound"><div><b>Töne</b><small>Kurzer Ton bei neuen Nachrichten und Erwähnungen</small></div><span class="sw"></span></div>
       <div class="toggle ${PREFS.desktop && perm === 'granted' ? 'on' : ''}" data-pref="desktop"><div><b>Desktop-Benachrichtigungen</b><small>${perm === 'denied' ? 'Im Browser blockiert – erlaube Benachrichtigungen in den Seiteneinstellungen.' : perm === 'unsupported' ? 'Wird von diesem Browser nicht unterstützt.' : 'Für Direktnachrichten und Erwähnungen, wenn Connecta im Hintergrund ist'}</small></div><span class="sw"></span></div>
       <p class="muted" style="font-size:14px;margin-top:6px">Tipp: Mit dem Status „Bitte nicht stören“ bekommst du gar keine Töne und Benachrichtigungen. Erwähne jemanden mit <b>@username</b>, damit er benachrichtigt wird.</p>`;
+  } else if (sTab === 'privacy') {
+    const rr = (S.settings || {}).readReceipts !== false;
+    body = `<div class="toggle ${rr ? 'on' : ''}" data-readreceipts><div><b>Lesebestätigungen</b><small>Andere sehen, wann du ihre Nachrichten gelesen hast. Wenn du das ausschaltest, siehst du auch bei anderen nicht, ob sie gelesen haben.</small></div><span class="sw"></span></div>
+      <div class="label" style="margin:20px 0 8px">Blockierte Nutzer — ${S.blocked.length}</div>
+      ${S.blocked.length ? S.blocked.map((u) => `<div class="item" style="cursor:default">${avatar(u)}<div class="ic"><div class="ir"><b>${esc(dn(u))}</b></div><div class="ir"><span class="pv">@${esc(u)}</span></div></div><button class="btn small ghost" data-unblock="${esc(u)}">Aufheben</button></div>`).join('') : `<p class="muted" style="font-size:14px">Du hast niemanden blockiert.</p>`}
+      <p class="muted" style="font-size:14px;margin-top:14px">Blockierte Personen können dir keine Anfragen schicken, dich nicht anrufen und ihre Nachrichten in Gruppen werden ausgeblendet.</p>`;
   } else {
     body = `<div class="item" style="cursor:default">${avatar(S.me, 'm', true)}<div class="ic"><div class="ir"><b>${esc(dn(S.me))}</b></div><div class="ir"><span class="pv">@${esc(S.me)}</span></div></div></div>
       <p class="muted" style="margin:12px 0 18px;font-size:14px">Dein Username kann nicht geändert werden. Deinen Anzeigenamen kannst du unter „Mein Profil“ anpassen.</p>
@@ -940,6 +1039,12 @@ function renderSettings() {
   if (sTab === 'profile') {
     const upd = () => { draft.displayName = $('fName').value; draft.pronouns = $('fPron').value; draft.bio = $('fBio').value; draft.customStatus = $('fCs').value; $('bioCnt').textContent = draft.bio.length + '/190'; $('pPrev').innerHTML = previewCard(); };
     ['fName', 'fPron', 'fBio', 'fCs'].forEach((id) => $(id).addEventListener('input', upd));
+  }
+  if (sTab === 'look' && $('c1')) {
+    let ct;
+    const upd = () => { applyLook({ custom: { ...LOOK.custom, c1: $('c1').value, c2: $('c2').value } }); document.querySelector('.gradprev').style.background = `linear-gradient(135deg,${$('c1').value},${$('c2').value})`; clearTimeout(ct); ct = setTimeout(() => socket.emit('settings:update', { custom: LOOK.custom }), 400); };
+    $('c1').oninput = upd; $('c2').oninput = upd;
+    $('c1').onchange = () => renderSettings(); $('c2').onchange = () => renderSettings();
   }
   if (sTab === 'look') {
     $('msgSize').oninput = () => { $('msgSizeV').textContent = $('msgSize').value + 'px'; applyLook({ msgSize: +$('msgSize').value }); };
@@ -1011,7 +1116,7 @@ function renderGroupModal(keepName) {
 }
 
 /* ================= Klicks ================= */
-const ACTIONS = '[data-view],[data-conv],[data-chat],[data-profile],[data-add],[data-acc],[data-dec],[data-pin],[data-del],[data-copy],[data-jump],[data-back],[data-info],[data-pins],[data-closepanel],[data-callaudio],[data-callvideo],[data-callto],[data-unfriend],[data-grename],[data-gadd],[data-gleave],[data-kick],[data-gimg],[data-closemodal],[data-stab],[data-theme-pick],[data-font-pick],[data-pickav],[data-pickbn],[data-rmav],[data-rmbn],[data-saveprofile],[data-logout],[data-gtoggle],[data-gpick],[data-gsubmit],[data-lb],[data-closelb],[data-play],[data-seek],[data-rmfile],[data-mention],[data-reply-mention],[data-setstatus],[data-opensettings],[data-pref],[data-sbpreview],[data-sbpreviewmedia],[data-sbremove],[data-sbadd],[data-sbplay],[data-sbmanage],[data-reccancel],[data-recsend],[data-openvid]';
+const ACTIONS = '[data-view],[data-conv],[data-chat],[data-profile],[data-add],[data-acc],[data-dec],[data-pin],[data-del],[data-copy],[data-jump],[data-back],[data-info],[data-pins],[data-closepanel],[data-callaudio],[data-callvideo],[data-callto],[data-unfriend],[data-grename],[data-gadd],[data-gleave],[data-kick],[data-gimg],[data-closemodal],[data-stab],[data-theme-pick],[data-font-pick],[data-pickav],[data-pickbn],[data-rmav],[data-rmbn],[data-saveprofile],[data-logout],[data-gtoggle],[data-gpick],[data-gsubmit],[data-lb],[data-closelb],[data-play],[data-seek],[data-rmfile],[data-mention],[data-reply-mention],[data-setstatus],[data-opensettings],[data-pref],[data-sbpreview],[data-sbpreviewmedia],[data-sbremove],[data-sbadd],[data-sbplay],[data-sbmanage],[data-reccancel],[data-recsend],[data-openvid],[data-block],[data-unblock],[data-reveal],[data-grant],[data-badgeinfo],[data-cbase],[data-preset],[data-readreceipts]';
 document.addEventListener('click', async (e) => {
   Sounds.unlock && (() => { try { Sounds.unlock(); } catch {} })();
   const t = e.target.closest(ACTIONS);
@@ -1019,6 +1124,17 @@ document.addEventListener('click', async (e) => {
   document.querySelectorAll('.row.sel').forEach((r) => r !== row && r.classList.remove('sel'));
   if (!t) { if (row && e.target.closest('.bubble') && !e.target.closest('a,video')) row.classList.toggle('sel'); return; }
   const d = t.dataset;
+  if ('badgeinfo' in d) { e.stopPropagation(); return toast(BADGES[d.badgeinfo].name); }
+  if ('block' in d) {
+    if (!confirm(`${dn(d.block)} blockieren? Ihr seid dann keine Freunde mehr und ${dn(d.block)} kann dir keine Anfragen schicken oder dich anrufen.`)) return;
+    return socket.emit('block', d.block, (r) => { toast(r.error || `${dn(d.block)} wurde blockiert`); closeModal(); });
+  }
+  if ('unblock' in d) return socket.emit('unblock', d.unblock, (r) => { toast(r.error || 'Blockierung aufgehoben'); if (sTab === 'privacy' && !$('modal').classList.contains('hidden')) setTimeout(renderSettings, 150); else closeModal(); });
+  if ('reveal' in d) { revealed.add(d.reveal); return renderMsgs(); }
+  if ('grant' in d) { const on = !t.classList.contains('on'); return socket.emit('badge:set', { user: d.grantuser, badge: d.grant, on }, (r) => { if (r.error) return toast(r.error); t.classList.toggle('on', on); setTimeout(() => openProfile(d.grantuser), 200); }); }
+  if ('cbase' in d) { applyLook({ custom: { ...LOOK.custom, base: d.cbase } }); socket.emit('settings:update', { custom: LOOK.custom }); return renderSettings(); }
+  if ('preset' in d) { const [c1, c2] = d.preset.split(','); applyLook({ custom: { ...LOOK.custom, c1, c2 } }); socket.emit('settings:update', { custom: LOOK.custom }); return renderSettings(); }
+  if ('readreceipts' in d) { const v = (S.settings || {}).readReceipts === false; S.settings = { ...S.settings, readReceipts: v }; socket.emit('settings:update', { readReceipts: v }); return renderSettings(); }
   if ('sbremove' in d) { e.stopPropagation(); return socket.emit('sound:remove', d.sbremove, (r) => { if (r.error) toast(r.error); setTimeout(renderSettings, 150); }); }
   if ('view' in d) { closeModal(); return setView(d.view); }
   if ('conv' in d) return openConv(d.conv);
@@ -1052,7 +1168,7 @@ document.addEventListener('click', async (e) => {
   }
   if ('closemodal' in d) return closeModal();
   if ('stab' in d) { sTab = d.stab; return renderSettings(); }
-  if ('themePick' in d) { applyLook({ theme: d.themePick }); socket.emit('settings:update', { theme: d.themePick }); return renderSettings(); }
+  if ('themePick' in d) { applyLook({ theme: d.themePick }); socket.emit('settings:update', { theme: d.themePick, ...(d.themePick === 'custom' ? { custom: LOOK.custom } : {}) }); return renderSettings(); }
   if ('fontPick' in d) { applyLook({ font: d.fontPick }); socket.emit('settings:update', { font: d.fontPick }); return renderSettings(); }
   if ('pickav' in d) { draft.avatar = await pickImage(256, 256); return renderSettings(); }
   if ('pickbn' in d) { draft.banner = await pickImage(960, 320); return renderSettings(); }
