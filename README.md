@@ -1,28 +1,28 @@
 # Connecta 💜
 
-Messenger ohne Handynummer – nur mit Username. Freunde adden, chatten, telefonieren und Videoanrufe.
-
-## Starten
-1. Node.js installieren (https://nodejs.org, Version 18 oder neuer)
-2. Im Ordner `connecta` ein Terminal öffnen und eingeben:
-   ```
-   npm install
-   npm start
-   ```
-3. Im Browser öffnen: http://localhost:3000
-
-Zum Testen: Öffne die Seite in einem normalen und einem privaten Fenster, registriere zwei Usernames und addet euch gegenseitig.
+Messenger ohne Handynummer – nur mit Username.
 
 ## Funktionen
-- Registrierung/Login mit Username + Passwort (Passwörter sicher mit bcrypt gehasht)
-- Freunde per Username suchen, Anfragen senden, annehmen, ablehnen, entfernen
-- Chat in Echtzeit, Verlauf wird gespeichert, „schreibt…“-Anzeige, Online-Status
-- Sprach- und Videoanrufe (WebRTC) mit Stummschalten und Kamera aus
-- Funktioniert auch am Handy
+- Freunde per Username, Chats, Gruppen, Sprach- & Videoanrufe
+- Bilder, Videos, Audios und Sprachnachrichten senden
+- @-Erwähnungen mit Benachrichtigung (auch @everyone in Gruppen)
+- Status: Online, Abwesend, Bitte nicht stören, Unsichtbar + Status-Text
+- Soundboard in Anrufen (12 eingebaute Sounds + eigene Sounds)
+- Profil mit Bild, Banner, Bio, Pronomen
+- Farbschema (Connecta, Dunkel, Hell), Schriftart und Nachrichtengröße
+- Nachrichten anpinnen und löschen
 
-## Online stellen
-- Anbieter wie **Render**, **Railway** oder ein eigener **VPS** (z. B. Hetzner) funktionieren.
-- **HTTPS ist Pflicht**, sonst dürfen Browser Mikrofon und Kamera nicht benutzen (localhost geht ausnahmsweise ohne).
-- Für Anrufe zwischen verschiedenen Netzen (z. B. Handy-Netz ↔ WLAN) brauchst du zusätzlich einen **TURN-Server**, z. B. coturn oder metered.ca. Trage ihn in `public/index.html` bei `ICE` ein.
-- Die Daten liegen in `data.json`. Für viele Nutzer später auf eine echte Datenbank (z. B. PostgreSQL) umsteigen.
-- In Deutschland brauchst du ein **Impressum** und eine **Datenschutzerklärung**.
+## Lokal starten
+```
+npm install
+npm start
+```
+Dann http://localhost:3000 öffnen. Ohne Datenbank wird lokal in `data.json` und `uploads/` gespeichert.
+
+## Dauerhaft speichern (Neon + Render)
+1. Kostenloses Konto auf https://neon.com anlegen und ein Projekt erstellen.
+2. Den „Connection string“ kopieren (beginnt mit `postgresql://`).
+3. Bei Render im Service unter **Environment** eine Variable anlegen:
+   - Key: `DATABASE_URL`
+   - Value: der kopierte Connection string
+4. Speichern und neu deployen. In den Logs steht dann „Speicher: Postgres“.
