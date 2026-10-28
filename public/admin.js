@@ -20,7 +20,7 @@ async function openAdmin(tab) {
   if (!S.isOwner) return;
   if (tab) adTab = tab;
   const tabs = [['overview', '📊 Übersicht'], ['users', '👥 Nutzer'], ['reports', `🛡️ Meldungen${adOpenReports ? ` (${adOpenReports})` : ''}`], ['broadcast', '📢 Mitteilung senden'], ['config', '⚙️ Einstellungen']];
-  const shell = (body) => openModal(`${mHead(`${I.shield} Developer Dashboard`)}<div class="adwrap"><nav class="adnav">${tabs.map(([k, t]) => `<button class="${adTab === k ? 'on' : ''}" data-adtab="${k}">${t}</button>`).join('')}</nav><div class="adbody" id="adBody">${body}</div></div>`, 'xwide');
+  const shell = (body) => openModal(`${mHead(`${I.shield} Developer Dashboard`)}<div class="dashwrap"><nav class="dashnav">${tabs.map(([k, t]) => `<button class="${adTab === k ? 'on' : ''}" data-dashtab="${k}">${t}</button>`).join('')}</nav><div class="dashbody" id="dashBody">${body}</div></div>`, 'xwide');
   shell('<div class="emptylist">Lade…</div>');
   if (adTab === 'overview') return renderAdOverview();
   if (adTab === 'users') return renderAdUsers();
@@ -28,45 +28,45 @@ async function openAdmin(tab) {
   if (adTab === 'broadcast') return renderAdBroadcast();
   if (adTab === 'config') return renderAdConfig();
 }
-const adBody = (h) => { if ($('adBody')) $('adBody').innerHTML = h; };
+const dashBody = (h) => { if ($('dashBody')) $('dashBody').innerHTML = h; };
 
 async function renderAdOverview() {
   const s = await emitP('admin:stats');
-  if (s.error) return adBody(`<p class="err">${esc(s.error)}</p>`);
+  if (s.error) return dashBody(`<p class="err">${esc(s.error)}</p>`);
   adOpenReports = s.reports; adminBadge();
-  const card = (n, t, e, tab) => `<div class="stat" ${tab ? `data-adtab="${tab}"` : ''}><span>${e}</span><b>${n.toLocaleString('de-DE')}</b><small>${t}</small></div>`;
-  adBody(`<h3 class="adh">Willkommen zurück, ${esc(dn(S.me))} 👋</h3>
+  const card = (n, t, e, tab) => `<div class="stat" ${tab ? `data-dashtab="${tab}"` : ''}><span>${e}</span><b>${n.toLocaleString('de-DE')}</b><small>${t}</small></div>`;
+  dashBody(`<h3 class="dashh">Willkommen zurück, ${esc(dn(S.me))} 👋</h3>
     <div class="stats">
       ${card(s.users, 'Nutzer insgesamt', '👥', 'users')}${card(s.online, 'Gerade online', '🟢', 'users')}${card(s.newToday, 'Neu (24 Std.)', '✨', 'users')}${card(s.activeToday, 'Aktiv (24 Std.)', '⚡')}
       ${card(s.messages, 'Nachrichten', '💬')}${card(s.messagesToday, 'Nachrichten (24 Std.)', '📨')}${card(s.groups, 'Gruppen', '👪')}${card(s.guilds, 'Server', '🏰')}
       ${card(s.stories, 'Aktive Storys', '📸')}${card(s.reports, 'Offene Meldungen', '🛡️', 'reports')}${card(s.banned, 'Gesperrte Konten', '🔨', 'users')}
     </div>
-    <div class="adinfo"><div><b>Speicher:</b> ${esc(s.storage)}</div><div><b>Max. Gruppengröße:</b> ${s.config.maxGroup} Personen</div><div><b>Registrierung:</b> ${s.config.registrationOpen ? '✅ offen' : '⛔ geschlossen'}</div></div>
-    <div class="pbtns row2"><button class="btn" data-adtab="broadcast">📢 Mitteilung an alle senden</button><button class="btn ghost" data-adtab="reports">🛡️ Meldungen ansehen</button></div>`);
+    <div class="dashinfo"><div><b>Speicher:</b> ${esc(s.storage)}</div><div><b>Max. Gruppengröße:</b> ${s.config.maxGroup} Personen</div><div><b>Registrierung:</b> ${s.config.registrationOpen ? '✅ offen' : '⛔ geschlossen'}</div></div>
+    <div class="pbtns row2"><button class="btn" data-dashtab="broadcast">📢 Mitteilung an alle senden</button><button class="btn ghost" data-dashtab="reports">🛡️ Meldungen ansehen</button></div>`);
 }
 
-async function renderAdUsers(q = (($('adQ') || {}).value || '')) {
+async function renderAdUsers(q = (($('dashQ') || {}).value || '')) {
   adUsers = await emitP('admin:users', { q });
-  if (adUsers.error) return adBody(`<p class="err">${esc(adUsers.error)}</p>`);
+  if (adUsers.error) return dashBody(`<p class="err">${esc(adUsers.error)}</p>`);
   const row = (u) => {
     const ban = u.ban ? (u.ban.until ? `⏳ gesperrt bis ${new Date(u.ban.until).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}` : '🔨 gebannt') : '';
     const me = u.username === S.me;
-    return `<div class="aduser ${u.ban ? 'banned' : ''}">
-      <div class="adu-main" data-profile="${esc(u.username)}">${avatar(u.username, 's', true)}<div class="ic"><div class="ir"><b>${esc(u.displayName || u.username)}</b>${badgeHtml(u.username, true)}${u.owner ? '<span class="tag">Owner</span>' : ''}</div><div class="ir"><span class="pv">@${esc(u.username)} · ${u.online ? '🟢 online' : 'zuletzt ' + fmtShort(u.lastSeen)}</span></div></div></div>
-      <div class="adu-meta"><span title="Registriert">📅 ${new Date(u.created).toLocaleDateString('de-DE')}</span><span title="Nachrichten">💬 ${u.messages}</span><span title="Freunde">👥 ${u.friends}</span>${u.reports ? `<span class="warn" title="Meldungen">🛡️ ${u.reports}</span>` : ''}${ban ? `<span class="warn">${ban}</span>` : ''}</div>
-      ${me ? '<div class="adu-acts"><span class="muted" style="font-size:13px">Das bist du</span></div>' : `<div class="adu-acts">
-        <button class="btn small ghost" data-adact="logout" data-u="${esc(u.username)}" title="Auf allen Geräten abmelden">Ausloggen</button>
-        ${u.ban ? `<button class="btn small" data-adact="unban" data-u="${esc(u.username)}">Entsperren</button>` : `<button class="btn small ghost" data-adact="suspend" data-u="${esc(u.username)}">Sperren</button><button class="btn small danger" data-adact="ban" data-u="${esc(u.username)}">Bannen</button>`}
-        <button class="btn small ghost" data-admsg="${esc(u.username)}" title="Offizielle Nachricht senden">📢</button>
+    return `<div class="dashuser ${u.ban ? 'banned' : ''}">
+      <div class="dashu-main" data-profile="${esc(u.username)}">${avatar(u.username, 's', true)}<div class="ic"><div class="ir"><b>${esc(u.displayName || u.username)}</b>${badgeHtml(u.username, true)}${u.owner ? '<span class="tag">Owner</span>' : ''}</div><div class="ir"><span class="pv">@${esc(u.username)} · ${u.online ? '🟢 online' : 'zuletzt ' + fmtShort(u.lastSeen)}</span></div></div></div>
+      <div class="dashu-meta"><span title="Registriert">📅 ${new Date(u.created).toLocaleDateString('de-DE')}</span><span title="Nachrichten">💬 ${u.messages}</span><span title="Freunde">👥 ${u.friends}</span>${u.reports ? `<span class="warn" title="Meldungen">🛡️ ${u.reports}</span>` : ''}${ban ? `<span class="warn">${ban}</span>` : ''}</div>
+      ${me ? '<div class="dashu-acts"><span class="muted" style="font-size:13px">Das bist du</span></div>' : `<div class="dashu-acts">
+        <button class="btn small ghost" data-dashact="logout" data-u="${esc(u.username)}" title="Auf allen Geräten abmelden">Ausloggen</button>
+        ${u.ban ? `<button class="btn small" data-dashact="unban" data-u="${esc(u.username)}">Entsperren</button>` : `<button class="btn small ghost" data-dashact="suspend" data-u="${esc(u.username)}">Sperren</button><button class="btn small danger" data-dashact="ban" data-u="${esc(u.username)}">Bannen</button>`}
+        <button class="btn small ghost" data-dashmsg="${esc(u.username)}" title="Offizielle Nachricht senden">📢</button>
       </div>`}
     </div>`;
   };
-  const html = `<div class="adbar"><div class="searchbox" style="margin:0;flex:1">${I.search}<input class="input" id="adQ" placeholder="Nutzer suchen…" value="${esc(q)}"></div><span class="muted">${adUsers.length} ${adUsers.length === 1 ? 'Nutzer' : 'Nutzer'}</span></div>
-    <div class="adusers">${adUsers.map(row).join('') || '<div class="emptylist">Keine Nutzer gefunden.</div>'}</div>`;
-  adBody(html);
+  const html = `<div class="dashbar"><div class="searchbox" style="margin:0;flex:1">${I.search}<input class="input" id="dashQ" placeholder="Nutzer suchen…" value="${esc(q)}"></div><span class="muted">${adUsers.length} ${adUsers.length === 1 ? 'Nutzer' : 'Nutzer'}</span></div>
+    <div class="dashusers">${adUsers.map(row).join('') || '<div class="emptylist">Keine Nutzer gefunden.</div>'}</div>`;
+  dashBody(html);
   adUsers.forEach((u) => { if (!S.people[u.username]) S.people[u.username] = u; });
-  const inp = $('adQ'); let t;
-  inp.oninput = () => { clearTimeout(t); t = setTimeout(() => { const pos = inp.selectionStart; renderAdUsers(inp.value).then(() => { const n = $('adQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }, 250); };
+  const inp = $('dashQ'); let t;
+  inp.oninput = () => { clearTimeout(t); t = setTimeout(() => { const pos = inp.selectionStart; renderAdUsers(inp.value).then(() => { const n = $('dashQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }); }, 250); };
 }
 
 function adAction(action, user) {
@@ -80,13 +80,13 @@ function adAction(action, user) {
   openModal(`${mHead(ban ? `${esc(name)} bannen` : `${esc(name)} sperren`)}<div class="mbody">
     <p class="muted" style="font-size:14px;margin-bottom:12px">${ban ? 'Das Konto wird <b>dauerhaft</b> gesperrt und sofort abgemeldet. Du kannst den Bann später wieder aufheben.' : 'Das Konto wird für die gewählte Zeit gesperrt und sofort abgemeldet.'}</p>
     ${ban ? '' : `<div class="label" style="margin-bottom:8px">Dauer</div><div class="reasons">${DURATIONS.map(([v, t], i) => `<label class="reason"><input type="radio" name="dur" value="${v}" ${i === 1 ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>`}
-    <div class="field" style="margin-top:12px"><span class="label">Grund (sieht die Person)</span><input class="input" id="adReason" maxlength="200" placeholder="z. B. Spam, Beleidigungen…"></div>
-    <div class="pbtns row2"><button class="btn ghost" id="adCancel">Abbrechen</button><button class="btn danger" id="adGo">${ban ? '🔨 Dauerhaft bannen' : '⏳ Sperren'}</button></div>
+    <div class="field" style="margin-top:12px"><span class="label">Grund (sieht die Person)</span><input class="input" id="dashReason" maxlength="200" placeholder="z. B. Spam, Beleidigungen…"></div>
+    <div class="pbtns row2"><button class="btn ghost" id="dashCancel">Abbrechen</button><button class="btn danger" id="dashGo">${ban ? '🔨 Dauerhaft bannen' : '⏳ Sperren'}</button></div>
   </div>`);
-  $('adCancel').onclick = () => openAdmin();
-  $('adGo').onclick = async () => {
+  $('dashCancel').onclick = () => openAdmin();
+  $('dashGo').onclick = async () => {
     const duration = ban ? 0 : +(document.querySelector('input[name=dur]:checked') || {}).value;
-    const r = await emitP('admin:action', { user, action, duration, reason: $('adReason').value });
+    const r = await emitP('admin:action', { user, action, duration, reason: $('dashReason').value });
     if (r.error) return toast(r.error);
     toast(ban ? `${name} wurde gebannt 🔨` : `${name} wurde gesperrt ⏳`);
     openAdmin();
@@ -95,26 +95,26 @@ function adAction(action, user) {
 
 async function renderAdReports() {
   const all = await emitP('admin:reports');
-  if (all.error) return adBody(`<p class="err">${esc(all.error)}</p>`);
+  if (all.error) return dashBody(`<p class="err">${esc(all.error)}</p>`);
   adOpenReports = all.filter((r) => r.status === 'open').length; adminBadge();
   const list = adReportsFilter === 'open' ? all.filter((r) => r.status === 'open') : all;
   const att = (a) => a.kind === 'image' && a.id ? `<img src="${mediaUrl(a.id)}" alt="">` : a.kind === 'gif' && a.url ? `<img src="${esc(a.url)}" alt="">` : `<span class="chip">${esc(a.kind)}</span>`;
-  adBody(`<div class="adbar"><div class="seg"><button class="${adReportsFilter === 'open' ? 'on' : ''}" data-adrf="open">Offen (${adOpenReports})</button><button class="${adReportsFilter === 'all' ? 'on' : ''}" data-adrf="all">Alle (${all.length})</button></div></div>
-    ${list.length ? list.map((r) => `<div class="adrep ${r.status}">
-      <div class="adrep-h"><span class="rtag">${esc(REASON_TXT[r.reason] || r.reason)}</span><span class="muted">${fmtShort(r.at)} ${fmtTime(r.at)}</span>${r.status === 'done' ? '<span class="tag">erledigt</span>' : ''}</div>
-      <div class="adrep-who"><span data-profile="${esc(r.by)}">${avatar(r.by, 's')}<b>${esc(dn(r.by))}</b></span><span class="muted">hat gemeldet</span><span data-profile="${esc(r.user)}">${avatar(r.user, 's')}<b>${esc(dn(r.user))}</b></span>${r.userBanned ? '<span class="warn">gesperrt</span>' : ''}</div>
-      ${r.text ? `<p class="adrep-t">„${esc(r.text)}“</p>` : ''}
-      ${r.msg ? `<div class="adrep-msg"><div class="label">Gemeldete Nachricht</div>${r.msg.text ? `<p>${esc(r.msg.text)}</p>` : ''}${(r.msg.att || []).length ? `<div class="adrep-att">${r.msg.att.map(att).join('')}</div>` : ''}</div>` : ''}
-      <div class="pbtns adrep-a">
-        ${r.status === 'open' ? `<button class="btn small" data-adrep="${r.id}" data-st="done">✓ Erledigt</button>` : `<button class="btn small ghost" data-adrep="${r.id}" data-st="open">Wieder öffnen</button>`}
-        ${r.msg ? `<button class="btn small ghost" data-addelmsg="${esc(r.msg.id)}">🗑️ Nachricht löschen</button>` : ''}
-        ${!r.userBanned ? `<button class="btn small ghost" data-adact="suspend" data-u="${esc(r.user)}">⏳ Sperren</button><button class="btn small danger" data-adact="ban" data-u="${esc(r.user)}">🔨 Bannen</button>` : `<button class="btn small ghost" data-adact="unban" data-u="${esc(r.user)}">Entsperren</button>`}
+  dashBody(`<div class="dashbar"><div class="seg"><button class="${adReportsFilter === 'open' ? 'on' : ''}" data-dashrf="open">Offen (${adOpenReports})</button><button class="${adReportsFilter === 'all' ? 'on' : ''}" data-dashrf="all">Alle (${all.length})</button></div></div>
+    ${list.length ? list.map((r) => `<div class="dashrep ${r.status}">
+      <div class="dashrep-h"><span class="rtag">${esc(REASON_TXT[r.reason] || r.reason)}</span><span class="muted">${fmtShort(r.at)} ${fmtTime(r.at)}</span>${r.status === 'done' ? '<span class="tag">erledigt</span>' : ''}</div>
+      <div class="dashrep-who"><span data-profile="${esc(r.by)}">${avatar(r.by, 's')}<b>${esc(dn(r.by))}</b></span><span class="muted">hat gemeldet</span><span data-profile="${esc(r.user)}">${avatar(r.user, 's')}<b>${esc(dn(r.user))}</b></span>${r.userBanned ? '<span class="warn">gesperrt</span>' : ''}</div>
+      ${r.text ? `<p class="dashrep-t">„${esc(r.text)}“</p>` : ''}
+      ${r.msg ? `<div class="dashrep-msg"><div class="label">Gemeldete Nachricht</div>${r.msg.text ? `<p>${esc(r.msg.text)}</p>` : ''}${(r.msg.att || []).length ? `<div class="dashrep-att">${r.msg.att.map(att).join('')}</div>` : ''}</div>` : ''}
+      <div class="pbtns dashrep-a">
+        ${r.status === 'open' ? `<button class="btn small" data-dashrep="${r.id}" data-st="done">✓ Erledigt</button>` : `<button class="btn small ghost" data-dashrep="${r.id}" data-st="open">Wieder öffnen</button>`}
+        ${r.msg ? `<button class="btn small ghost" data-dashdelmsg="${esc(r.msg.id)}">🗑️ Nachricht löschen</button>` : ''}
+        ${!r.userBanned ? `<button class="btn small ghost" data-dashact="suspend" data-u="${esc(r.user)}">⏳ Sperren</button><button class="btn small danger" data-dashact="ban" data-u="${esc(r.user)}">🔨 Bannen</button>` : `<button class="btn small ghost" data-dashact="unban" data-u="${esc(r.user)}">Entsperren</button>`}
       </div>
     </div>`).join('') : `<div class="emptylist">🎉<br>${adReportsFilter === 'open' ? 'Keine offenen Meldungen.' : 'Noch keine Meldungen.'}</div>`}`);
 }
 
 function renderAdBroadcast() {
-  adBody(`<h3 class="adh">📢 Offizielle Mitteilung senden</h3>
+  dashBody(`<h3 class="dashh">📢 Offizielle Mitteilung senden</h3>
     <p class="muted" style="font-size:14px;margin-bottom:14px">Die Nachricht erscheint bei den Empfängern im Chat <b>Connecta ${I.verified}</b> ganz oben – ideal für Update-Logs, neue Funktionen oder wichtige Infos.</p>
     <div class="label" style="margin-bottom:8px">Empfänger</div>
     <div class="seg" style="margin-bottom:10px"><button class="${!bcTargets ? 'on' : ''}" data-bcmode="all">🌍 Alle Nutzer</button><button class="${bcTargets ? 'on' : ''}" data-bcmode="some">👤 Ausgewählte</button></div>
@@ -157,8 +157,8 @@ bcTargets = null;
 
 async function renderAdConfig() {
   const s = await emitP('admin:stats');
-  if (s.error) return adBody(`<p class="err">${esc(s.error)}</p>`);
-  adBody(`<h3 class="adh">⚙️ App-Einstellungen</h3>
+  if (s.error) return dashBody(`<p class="err">${esc(s.error)}</p>`);
+  dashBody(`<h3 class="dashh">⚙️ App-Einstellungen</h3>
     <div class="field"><span class="label">Maximale Gruppengröße</span><div style="display:flex;gap:8px;align-items:center"><input class="input" type="number" id="cfgMax" min="2" max="500" value="${s.config.maxGroup}" style="max-width:140px"><span class="muted">Personen pro Gruppe (inklusive Ersteller)</span></div></div>
     <div class="toggle ${s.config.registrationOpen ? 'on' : ''}" id="cfgReg"><div><b>Registrierung offen</b><small>Wenn aus, können sich keine neuen Nutzer registrieren</small></div><span class="sw"></span></div>
     <button class="btn" id="cfgSave">Speichern</button>
@@ -171,16 +171,16 @@ async function renderAdConfig() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('#rbAdmin,[data-adtab],[data-adact],[data-adrep],[data-addelmsg],[data-adrf],[data-admsg],[data-bcmode],[data-bcrm],[data-bcadd]');
+  const t = e.target.closest('#rbAdmin,[data-dashtab],[data-dashact],[data-dashrep],[data-dashdelmsg],[data-dashrf],[data-dashmsg],[data-bcmode],[data-bcrm],[data-bcadd]');
   if (!t) return;
   const d = t.dataset;
   if (t.id === 'rbAdmin') return openAdmin();
-  if ('adtab' in d) return openAdmin(d.adtab);
-  if ('adact' in d) return adAction(d.adact, d.u);
-  if ('adrep' in d) return emitP('admin:report', { id: d.adrep, status: d.st }).then((r) => { if (r.error) toast(r.error); renderAdReports(); });
-  if ('addelmsg' in d) { if (confirm('Diese Nachricht für alle löschen?')) emitP('admin:deleteMessage', d.addelmsg).then((r) => toast(r.error || 'Nachricht gelöscht')); return; }
-  if ('adrf' in d) { adReportsFilter = d.adrf; return renderAdReports(); }
-  if ('admsg' in d) { bcTargets = [d.admsg]; adTab = 'broadcast'; return openAdmin(); }
+  if ('dashtab' in d) return openAdmin(d.dashtab);
+  if ('dashact' in d) return adAction(d.dashact, d.u);
+  if ('dashrep' in d) return emitP('admin:report', { id: d.dashrep, status: d.st }).then((r) => { if (r.error) toast(r.error); renderAdReports(); });
+  if ('dashdelmsg' in d) { if (confirm('Diese Nachricht für alle löschen?')) emitP('admin:deleteMessage', d.dashdelmsg).then((r) => toast(r.error || 'Nachricht gelöscht')); return; }
+  if ('dashrf' in d) { adReportsFilter = d.dashrf; return renderAdReports(); }
+  if ('dashmsg' in d) { bcTargets = [d.dashmsg]; adTab = 'broadcast'; return openAdmin(); }
   if ('bcmode' in d) { const keep = renderAdBroadcast.keep; return keep(() => { bcTargets = d.bcmode === 'all' ? null : bcTargets || []; }); }
   if ('bcrm' in d) return renderAdBroadcast.keep(() => { bcTargets = bcTargets.filter((u) => u !== d.bcrm); });
   if ('bcadd' in d) return renderAdBroadcast.keep(() => { if (!bcTargets.includes(d.bcadd)) bcTargets.push(d.bcadd); });
