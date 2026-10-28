@@ -3,26 +3,30 @@
 Messenger ohne Handynummer – nur mit Username.
 
 ## Funktionen
-- Freunde per Username, Chats, Gruppen, Sprach- & Videoanrufe
-- Bilder, Videos, Audios und Sprachnachrichten senden
-- @-Erwähnungen mit Benachrichtigung (auch @everyone in Gruppen)
-- Status: Online, Abwesend, Bitte nicht stören, Unsichtbar + Status-Text
-- Soundboard in Anrufen (12 eingebaute Sounds + eigene Sounds)
-- Profil mit Bild, Banner, Bio, Pronomen
-- Farbschema (Connecta, Dunkel, Hell), Schriftart und Nachrichtengröße
-- Nachrichten anpinnen und löschen
+- Freunde per Username, Freunde anpinnen, Chats, Gruppen (Größe im Dashboard einstellbar), Notizen-Chat
+- **Server wie bei Discord**: Kanäle, Rollen mit Farben, Berechtigungen, Einladungslinks, Kick & Bann
+- **Storys** (24 Stunden, Foto/Video/Text, Aufrufe, Antworten)
+- Sprach- & Videoanrufe mit **Bildschirmübertragung**, Soundboard, Mikrofonwahl – der Chat bleibt beim Anruf sichtbar
+- Bilder, Videos, Audios, Sprachnachrichten, **Emojis**, **GIFs**, Antworten auf Nachrichten
+- @-Erwähnungen, Lesebestätigungen, Status, Abzeichen, Blockieren, **Melden**
+- **Developer Dashboard** (nur Owner): Statistiken, Nutzer ausloggen/sperren/bannen, Meldungen, offizielle Mitteilungen
+- Eigenes Farbschema, Schriftarten, Nutzungsbedingungen unter `/tos`
+- Funktioniert im Handy-Browser und lässt sich als App auf den Startbildschirm legen
 
 ## Lokal starten
 ```
 npm install
 npm start
 ```
-Dann http://localhost:3000 öffnen. Ohne Datenbank wird lokal in `data.json` und `uploads/` gespeichert.
+Dann http://localhost:3000 öffnen.
 
-## Dauerhaft speichern (Neon + Render)
-1. Kostenloses Konto auf https://neon.com anlegen und ein Projekt erstellen.
-2. Den „Connection string“ kopieren (beginnt mit `postgresql://`).
-3. Bei Render im Service unter **Environment** eine Variable anlegen:
-   - Key: `DATABASE_URL`
-   - Value: der kopierte Connection string
-4. Speichern und neu deployen. In den Logs steht dann „Speicher: Postgres“.
+## Einstellungen bei Render (Environment)
+| Key | Wert | Pflicht? |
+|---|---|---|
+| `DATABASE_URL` | Connection string von Neon | ja, damit Daten erhalten bleiben |
+| `OWNER` | dein Connecta-Username | ja, für Dashboard & Entwickler-Abzeichen |
+| `GIPHY_API_KEY` | kostenloser Schlüssel von developers.giphy.com | für GIFs |
+| `TURN_URL`, `TURN_USER`, `TURN_PASS` | Daten eines TURN-Servers (z. B. metered.ca) | für Anrufe zwischen Handy-Netz und WLAN |
+
+## Vor dem Veröffentlichen
+In `public/tos.html` die Platzhalter in eckigen Klammern (Name, Adresse, E-Mail) ausfüllen. In Deutschland brauchst du außerdem ein Impressum und eine Datenschutzerklärung.
