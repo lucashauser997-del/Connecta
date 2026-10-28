@@ -2,14 +2,22 @@
 <html lang="de" data-theme="connecta">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#07060b">
+<meta name="description" content="Connecta – Chatten, telefonieren und Server mit Freunden. Ohne Handynummer, nur mit Username.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Connecta">
 <title>Connecta</title>
-<link rel="icon" href="logo.svg">
+<link rel="icon" href="/logo.svg">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="manifest" href="/manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="fontLink" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/features.css">
 </head>
 <body>
 
@@ -23,9 +31,11 @@
     <form id="authForm">
       <input class="input" id="u" placeholder="Username" autocomplete="username" autocapitalize="off" required>
       <input class="input" id="p" type="password" placeholder="Passwort" autocomplete="current-password" required>
+      <label class="tosck hidden" id="tosRow"><input type="checkbox" id="tos"><span>Ich akzeptiere die <a href="/tos" target="_blank" rel="noopener">Nutzungsbedingungen</a> und bin mindestens 13 Jahre alt.</span></label>
       <div class="err" id="authErr"></div>
       <button class="btn" id="authBtn">Anmelden</button>
     </form>
+    <a class="toslink" href="/tos" target="_blank" rel="noopener">Nutzungsbedingungen</a>
   </div>
 </section>
 
@@ -37,7 +47,11 @@
     <button class="rb" data-view="chats" title="Chats" id="rbChats"></button>
     <button class="rb" data-view="friends" title="Freunde" id="rbFriends"></button>
     <button class="rb" id="rbGroup" title="Gruppe erstellen"></button>
+    <div class="sep"></div>
+    <div class="rail-guilds" id="railGuilds"></div>
+    <button class="rb addguild" id="rbAddGuild" title="Server erstellen oder beitreten"></button>
     <div class="spacer"></div>
+    <button class="rb admin hidden" id="rbAdmin" title="Developer Dashboard"></button>
     <button class="rb" id="rbMe" title="Status & Einstellungen"></button>
   </nav>
 
@@ -48,6 +62,31 @@
   </aside>
 
   <main class="main" id="main">
+    <!-- Anruf (oben angedockt, Chat bleibt darunter sichtbar) -->
+    <section id="call" class="hidden">
+      <div class="call-top">
+        <span class="call-title" id="callTitle"></span>
+        <span class="call-status" id="callStatus"></span>
+        <button class="ibtn" id="callExpand" title="Vergrößern"></button>
+      </div>
+      <div class="call-stage" id="callStage">
+        <div class="tile" id="tileRemote"><video id="remoteV" autoplay playsinline></video><div class="tile-av" id="remoteAv"></div><div class="tile-name"><span id="remoteName"></span><span class="tile-ic" id="remoteIcons"></span></div></div>
+        <div class="tile local" id="tileLocal"><video id="localV" autoplay playsinline muted></video><div class="tile-av" id="localAv"></div><div class="tile-name"><span>Du</span><span class="tile-ic" id="localIcons"></span></div><div class="lvl"><i id="localLvl"></i></div></div>
+      </div>
+      <audio id="remoteA" autoplay playsinline></audio>
+      <button class="audio-unlock hidden" id="audioUnlock">🔊 Tippe hier, um den Ton zu aktivieren</button>
+      <div class="sbtoast hidden" id="sbToast"></div>
+      <div class="soundboard hidden" id="soundboard"></div>
+      <div class="call-btns">
+        <button class="ibtn" id="muteBtn" title="Stummschalten"></button>
+        <button class="ibtn" id="camBtn" title="Kamera"></button>
+        <button class="ibtn" id="screenBtn" title="Bildschirm übertragen"></button>
+        <button class="ibtn" id="sbBtn" title="Soundboard"></button>
+        <button class="ibtn" id="callSettingsBtn" title="Sprach- & Videoeinstellungen"></button>
+        <button class="ibtn red" id="hangup" title="Auflegen"></button>
+      </div>
+    </section>
+
     <div class="welcome" id="welcome">
       <div>
         <img class="logo-img" alt="">
@@ -63,10 +102,17 @@
       <div class="typing" id="typing"></div>
       <div class="composer-wrap">
         <div class="mentionbox hidden" id="mentionBox"></div>
+        <div class="pickerbox hidden" id="pickerBox"></div>
+        <div class="replybar hidden" id="replyBar"></div>
         <div class="tray hidden" id="tray"></div>
+        <div class="robar hidden" id="roBar"></div>
         <form class="composer" id="composer">
           <button type="button" class="cbtn" id="attachBtn" title="Bild, Video oder Audio senden"></button>
-          <textarea class="input" id="text" rows="1" placeholder="Nachricht schreiben…" autocomplete="off"></textarea>
+          <div class="inputwrap">
+            <textarea class="input" id="text" rows="1" placeholder="Nachricht schreiben…" autocomplete="off"></textarea>
+            <button type="button" class="inbtn" id="gifBtn" title="GIF senden">GIF</button>
+            <button type="button" class="inbtn" id="emojiBtn" title="Emoji"></button>
+          </div>
           <button class="send" title="Senden" id="sendBtn"></button>
         </form>
         <div class="recbar hidden" id="recBar"></div>
@@ -78,32 +124,23 @@
   <aside class="panel hidden" id="panel"></aside>
 </section>
 
+<div id="ringing" class="hidden"></div>
+<button id="callPill" class="hidden"></button>
 <div id="statusMenu" class="popover hidden"></div>
+<div id="guildMenu" class="popover gmenu hidden"></div>
 <div id="modal" class="hidden"></div>
 <div id="lightbox" class="hidden"></div>
-
-<!-- ===== Anruf ===== -->
-<section id="call" class="hidden">
-  <div class="videos" id="videos"><video id="remoteV" autoplay playsinline></video><video id="localV" autoplay playsinline muted></video></div>
-  <audio id="remoteA" autoplay></audio>
-  <div id="callAv" class="pulse"></div>
-  <h2 id="callName"></h2>
-  <div class="status" id="callStatus"></div>
-  <div class="sbtoast hidden" id="sbToast"></div>
-  <div class="soundboard hidden" id="soundboard"></div>
-  <div class="call-btns">
-    <button class="ibtn green hidden" id="acceptCall" title="Annehmen"></button>
-    <button class="ibtn" id="muteBtn" title="Stummschalten"></button>
-    <button class="ibtn" id="camBtn" title="Kamera"></button>
-    <button class="ibtn" id="sbBtn" title="Soundboard"></button>
-    <button class="ibtn red" id="hangup" title="Auflegen"></button>
-  </div>
-</section>
-
+<div id="storyViewer" class="hidden"></div>
 <div id="toasts"></div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="sounds.js"></script>
-<script src="app.js"></script>
+<script src="/sounds.js"></script>
+<script src="/app.js"></script>
+<script src="/call.js"></script>
+<script src="/guilds.js"></script>
+<script src="/stories.js"></script>
+<script src="/picker.js"></script>
+<script src="/admin.js"></script>
+<script src="/boot.js"></script>
 </body>
 </html>

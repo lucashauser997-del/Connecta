@@ -36,6 +36,17 @@ const I = {
   block: ic('<circle cx="12" cy="12" r="10"/><path d="M4.9 4.9l14.2 14.2"/>'),
   shield: ic('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'),
   note: ic('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>'),
+  flag: ic('<path d="M4 22V4M4 4h13l-2 4 2 4H4"/>'),
+  reply: ic('<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v5"/>'),
+  hash: ic('<path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/>'),
+  screen: ic('<rect x="2" y="3" width="20" height="14" rx="3"/><path d="M8 21h8M12 17v4"/>'),
+  expand: ic('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
+  shrink: ic('<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>'),
+  smile: ic('<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>'),
+  camOff: ic('<path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.7 0H14a2 2 0 0 1 2 2v3.3l1 1L23 7v10M1 1l22 22"/>'),
+  micOff: ic('<path d="M1 1l22 22M9 9v3a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.6"/><path d="M17 16.9A7 7 0 0 1 5 12v-2m14 0v2c0 .8-.1 1.5-.4 2.2M12 19v3"/>'),
+  crown: ic('<path d="M2 18h20L19 7l-5 5-2-7-2 7-5-5z"/>'),
+  verified: '<svg class="verified" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1l2.6 2.2 3.4-.3.9 3.3 3 1.7-1.2 3.2 1.2 3.2-3 1.7-.9 3.3-3.4-.3L12 23l-2.6-2.2-3.4.3-.9-3.3-3-1.7 1.2-3.2L2.1 9.9l3-1.7.9-3.3 3.4.3z"/><path d="M7.5 12.2l3 3 6-6.2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 const TICK1 = '<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const TICK2 = '<svg class="tick" viewBox="0 0 28 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12.5l4.5 4.5L16 7.5M11 16.5l.5.5L21 7.5"/></svg>';
@@ -187,7 +198,8 @@ const savePrefs = () => store.set('prefs', JSON.stringify(PREFS));
 
 /* ================= Zustand ================= */
 let socket;
-let S = { me: null, myStatus: 'online', settings: {}, sounds: [], people: {}, friends: [], incoming: [], outgoing: [], groups: [], last: {}, blocked: [], reads: {}, isOwner: false };
+let S = { me: null, myStatus: 'online', settings: {}, sounds: [], people: {}, friends: [], incoming: [], outgoing: [], groups: [], last: {}, blocked: [], reads: {}, isOwner: false, guilds: [], stories: [], pinned: [], config: { maxGroup: 10 } };
+let replyTo = null;
 let view = 'chats', current = null, msgs = [], unread = {}, unreadAt = {}, panelMode = null, typingMap = {}, hasMore = {}, loadingOlder = false;
 const STATUS = {
   online: ['Online', 'Du bist für alle sichtbar.'],
@@ -206,9 +218,34 @@ const isNote = (c) => c.startsWith('note:');
 const isGroup = (c) => c.startsWith('g_');
 const noteId = () => 'note:' + S.me;
 const isBlocked = (u) => S.blocked.includes(u);
+const isChan = (c) => !!c && c.startsWith('ch:');
+const isNews = (c) => c === 'news';
+const guild = (id) => S.guilds.find((g) => g.id === id);
+function chanOf(c) { const [, gid, cid] = String(c).split(':'); const g = guild(gid); return { g, ch: g && g.channels.find((x) => x.id === cid) }; }
+// Berechtigungen in einem Server (wie auf dem Server berechnet)
+function gHas(g, perm, u = S.me) {
+  if (!g || !g.members[u]) return false;
+  if (u === S.me && g.myPerms) return g.myPerms.includes(perm);
+  if (g.owner === u) return true;
+  const set = new Set(g.everyone || []);
+  (g.members[u].roles || []).forEach((r) => { const x = g.roles.find((y) => y.id === r); if (x) x.perms.forEach((p) => set.add(p)); });
+  return set.has('ADMIN') || set.has(perm);
+}
+function roleColor(g, u) { if (!g || !g.members[u]) return null; for (const r of g.roles) if (r.color && (g.members[u].roles || []).includes(r.id)) return r.color; return null; }
+function canSendHere(c = current) {
+  if (!c) return false;
+  if (isNews(c)) return false;
+  if (!isChan(c)) return true;
+  const { g, ch } = chanOf(c);
+  if (!g || !ch || !gHas(g, 'SEND')) return false;
+  if (!ch.sendRoles || !ch.sendRoles.length || gHas(g, 'ADMIN')) return true;
+  return (g.members[S.me].roles || []).some((r) => ch.sendRoles.includes(r));
+}
+const officialAv = (cls = '') => `<div class="av grp official ${cls}"><img src="${LOGO}" alt=""></div>`;
+function guildIcon(g, cls = '') { return `<div class="av grp gicon ${cls}">${g.icon ? `<img src="${mediaUrl(g.icon)}" alt="">` : esc(g.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase())}</div>`; }
 const other = (c) => c.slice(3).split('|').find((x) => x !== S.me) || S.me;
 const grp = (id) => S.groups.find((g) => g.id === id);
-const membersOf = (c) => isNote(c) ? [S.me] : isDM(c) ? c.slice(3).split('|') : (grp(c) || { members: [] }).members;
+const membersOf = (c) => isNews(c) ? [] : isNote(c) ? [S.me] : isDM(c) ? c.slice(3).split('|') : isChan(c) ? Object.keys((chanOf(c).g || { members: {} }).members) : (grp(c) || { members: [] }).members;
 const mediaUrl = (id) => '/media/' + encodeURIComponent(id);
 function avatar(u, cls = '', dot = false) {
   const p = P(u);
@@ -219,9 +256,9 @@ function gAvatar(g, cls = '', src) {
   const inner = src ? `<img src="${src}" alt="">` : g.avatar ? `<img src="${mediaUrl(g.avatar)}" alt="">` : esc(((g.name || '#')[0] || '#').toUpperCase());
   return `<div class="av grp ${cls}">${inner}</div>`;
 }
-const convAvatar = (c, cls = '', dot = false) => isNote(c) ? `<div class="av grp note ${cls}">${I.note}</div>` : isDM(c) ? avatar(other(c), cls, dot) : grp(c) ? gAvatar(grp(c), cls) : '';
-const convTitle = (c) => isNote(c) ? 'Notizen' : isDM(c) ? dn(other(c)) : (grp(c) || {}).name || 'Gruppe';
-const canOpen = (c) => isNote(c) ? c === noteId() : isDM(c) ? S.friends.includes(other(c)) : !!grp(c);
+const convAvatar = (c, cls = '', dot = false) => isNews(c) ? officialAv(cls) : isChan(c) ? `<div class="av grp chanav ${cls}">${I.hash}</div>` : isNote(c) ? `<div class="av grp note ${cls}">${I.note}</div>` : isDM(c) ? avatar(other(c), cls, dot) : grp(c) ? gAvatar(grp(c), cls) : '';
+const convTitle = (c) => isNews(c) ? 'Connecta' : isChan(c) ? (chanOf(c).ch || {}).name || 'kanal' : isNote(c) ? 'Notizen' : isDM(c) ? dn(other(c)) : (grp(c) || {}).name || 'Gruppe';
+const canOpen = (c) => isNews(c) ? true : isChan(c) ? !!chanOf(c).ch : isNote(c) ? c === noteId() : isDM(c) ? S.friends.includes(other(c)) : !!grp(c);
 
 // Text formatieren: Links und @-Erwähnungen
 function fmtText(t) {
@@ -241,7 +278,7 @@ function msgLabel(m) {
   const a = (m.att || [])[0];
   if (!a) return '';
   const n = m.att.length > 1 ? ` (${m.att.length})` : '';
-  return { image: '📷 Foto', video: '🎥 Video', voice: '🎤 Sprachnachricht', audio: '🎵 Audio' }[a.kind] + n;
+  return ({ image: '📷 Foto', video: '🎥 Video', voice: '🎤 Sprachnachricht', audio: '🎵 Audio', gif: '🎞️ GIF' }[a.kind] || '📎 Datei') + n;
 }
 
 /* ================= Login ================= */
@@ -251,11 +288,13 @@ document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
   $('authBtn').textContent = mode === 'login' ? 'Anmelden' : 'Konto erstellen';
   $('authErr').textContent = '';
+  $('tosRow').classList.toggle('hidden', mode !== 'register');
 });
 $('authForm').onsubmit = async (e) => {
   e.preventDefault();
   try {
-    const r = await fetch('/api/' + mode, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('u').value, password: $('p').value }) });
+    const r = await fetch('/api/' + mode, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('u').value, password: $('p').value, tos: $('tos').checked }) });
+    if (mode === 'register' && !$('tos').checked) return $('authErr').textContent = 'Bitte akzeptiere die Nutzungsbedingungen.';
     const d = await r.json();
     if (!r.ok) return $('authErr').textContent = d.error;
     store.set('token', d.token);
@@ -263,12 +302,15 @@ $('authForm').onsubmit = async (e) => {
     start(d.token);
   } catch { $('authErr').textContent = 'Server nicht erreichbar.'; }
 };
-function logout() { store.del('token'); location.reload(); }
+function logout(msg) { store.del('token'); if (msg) store.set('authMsg', msg); location.reload(); }
+{ const m = store.get('authMsg'); if (m) { $('authErr').textContent = m; store.del('authMsg'); } }
 
 /* ================= Start & Echtzeit ================= */
 function start(token) {
   socket = io({ auth: { token } });
-  socket.on('connect_error', (err) => { if (err.message === 'unauthorized') logout(); });
+  socket.on('connect_error', (err) => { if (err.message === 'unauthorized') logout(); if (err.message === 'banned') logout((err.data && err.data.text) || 'Dein Konto ist gesperrt.'); });
+  socket.on('kicked', (d) => logout((d && d.text) || 'Du wurdest abgemeldet.'));
+  socket.on('notice', (d) => d && d.text && toast(d.text));
   socket.on('state', (s) => {
     const first = !S.me;
     Object.assign(S, s);
@@ -277,8 +319,10 @@ function start(token) {
     if (current && unread[current]) { unread[current] = 0; unreadAt[current] = 0; markRead(true); }
     bumpTitle();
     if (first) { $('auth').classList.add('hidden'); $('app').classList.remove('hidden'); }
+    if (view.startsWith('g:') && !guild(view.slice(2))) { view = 'chats'; }
     if (current && !canOpen(current)) closeChat();
     renderAll();
+    if (first && typeof onFirstState === 'function') onFirstState();
     if (!$('statusMenu').classList.contains('hidden')) renderStatusMenu();
     if (inCall()) renderSoundboard();
   });
@@ -304,8 +348,8 @@ function start(token) {
     renderTyping(); setTimeout(renderTyping, 2700);
   });
   setupCalls();
+  if (typeof setupAdmin === 'function') setupAdmin();
 }
-if (TOKEN) start(TOKEN);
 
 function onMessage(m) {
   S.last[m.conv] = m;
@@ -332,10 +376,12 @@ function notify(m, mentioned, here) {
   if (S.myStatus === 'dnd') return;
   const dm = isDM(m.conv);
   if (isNote(m.conv)) return;
-  const important = dm || mentioned;
+  const important = dm || mentioned || isNews(m.conv);
+  if (isChan(m.conv) && !mentioned) return;
+  if (isNews(m.conv)) { toast('Connecta · Offizielle Mitteilung', m.title || msgLabel(m), () => openConv('news'), officialAv('s')); if (PREFS.sound) Sounds.ping(true); return; }
   const title = mentioned && !dm ? `${dn(m.from)} hat dich erwähnt` : convTitle(m.conv);
   const body = (dm ? '' : (mentioned ? convTitle(m.conv) + ' · ' : dn(m.from) + ': ')) + msgLabel(m);
-  if (!here) toast(title, body, () => openConv(m.conv), convAvatar(m.conv, 's'), mentioned ? 'mention' : '');
+  if (!here) toast(isChan(m.conv) ? `${dn(m.from)} hat dich in #${convTitle(m.conv)} erwähnt` : title, body, () => openConv(m.conv), isChan(m.conv) ? avatar(m.from, 's') : convAvatar(m.conv, 's'), mentioned ? 'mention' : '');
   if (PREFS.sound && (important || !here)) Sounds.ping(mentioned);
   if (document.hidden && important && PREFS.desktop && 'Notification' in window && Notification.permission === 'granted') {
     try {
@@ -357,8 +403,9 @@ function markRead(force) {
 document.addEventListener('visibilitychange', () => { if (!document.hidden && current) { unread[current] = 0; markRead(true); bumpTitle(); renderRail(); } });
 window.addEventListener('focus', () => current && markRead());
 
+const chatUnread = () => Object.entries(unread).reduce((a, [c, n]) => a + (isChan(c) ? 0 : n), 0);
 function bumpTitle() {
-  const n = Object.values(unread).reduce((a, b) => a + b, 0);
+  const n = chatUnread() + Object.entries(unreadAt).reduce((a, [c, n2]) => a + (isChan(c) ? n2 : 0), 0);
   document.title = n ? `(${n}) Connecta` : 'Connecta';
 }
 
@@ -366,15 +413,19 @@ function bumpTitle() {
 function renderAll() { renderRail(); renderSide(); if (current) { renderHead(); renderMsgs(); renderPinBar(); } if (panelMode) renderPanel(); }
 
 function renderRail() {
-  const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+  const totalUnread = chatUnread();
   $('rbChats').innerHTML = I.chat + (totalUnread ? `<span class="badge">${totalUnread > 99 ? '99+' : totalUnread}</span>` : '');
   $('rbFriends').innerHTML = I.users + (S.incoming.length ? `<span class="badge">${S.incoming.length}</span>` : '');
   $('rbGroup').innerHTML = I.plus;
   $('rbMe').innerHTML = S.me ? avatar(S.me, '', true) : '';
   document.querySelectorAll('.rail [data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
+  $('rbAdmin').classList.toggle('hidden', !S.isOwner);
+  if (typeof renderRailGuilds === 'function') renderRailGuilds();
 }
 
 function renderSide() {
+  $('app').classList.toggle('guildview', view.startsWith('g:'));
+  if (view.startsWith('g:')) return renderGuildSide();
   $('sideTitle').textContent = view === 'chats' ? 'Chats' : 'Freunde';
   $('sideBtns').innerHTML = view === 'chats' ? `<button class="ibtn" id="sideGroup" title="Gruppe erstellen">${I.edit}</button>` : '';
   $('search').placeholder = view === 'chats' ? 'Chats durchsuchen' : 'Username suchen & adden';
@@ -385,6 +436,7 @@ function preview(c) {
   const l = S.last[c];
   if (!l) return isNote(c) ? 'Nur für dich – schreib dir selbst' : 'Gruppe erstellt';
   if (isNote(c)) return msgLabel(l);
+  if (isNews(c)) return (l.title ? l.title + ' – ' : '') + msgLabel(l);
   if (l.system) return l.text;
   const pre = l.from === S.me ? 'Du: ' : !isDM(c) ? dn(l.from) + ': ' : '';
   return pre + msgLabel(l);
@@ -392,17 +444,21 @@ function preview(c) {
 
 function renderChats() {
   const q = $('search').value.trim().toLowerCase();
-  const convs = [...S.friends.map((f) => dmId(S.me, f)).filter((c) => S.last[c]), ...S.groups.map((g) => g.id)]
+  const pinnedC = S.pinned.map((f) => dmId(S.me, f));
+  const convs = [...S.friends.map((f) => dmId(S.me, f)).filter((c) => S.last[c] && !pinnedC.includes(c)), ...S.groups.map((g) => g.id)]
     .filter((c) => !q || convTitle(c).toLowerCase().includes(q))
     .sort((a, b) => ((S.last[b] || {}).at || (grp(b) || {}).created || 0) - ((S.last[a] || {}).at || (grp(a) || {}).created || 0));
+  convs.unshift(...pinnedC.filter((c) => !q || convTitle(c).toLowerCase().includes(q)));
+  if (S.last.news && (!q || 'connecta'.includes(q))) convs.unshift('news');
   if (!q || 'notizen'.includes(q)) convs.unshift(noteId());
   if (!convs.length) {
     $('list').innerHTML = `<div class="emptylist">${q ? 'Nichts gefunden.' : 'Noch keine Chats.<br>Schreib einem Freund oder erstelle eine Gruppe.'}${q ? '' : `<button class="btn small" data-view="friends">Freunde ansehen</button>`}</div>`;
     return;
   }
-  $('list').innerHTML = convs.map((c) => {
+  $('list').innerHTML = (typeof storyStripHtml === 'function' && !q ? storyStripHtml() : '') + convs.map((c) => {
     const l = S.last[c], n = unread[c] || 0, at = unreadAt[c] || 0;
-    return `<div class="item ${c === current ? 'on' : ''} ${n ? 'unread' : ''}" data-conv="${esc(c)}">${convAvatar(c, '', isDM(c))}<div class="ic"><div class="ir"><b>${esc(convTitle(c))}</b><span class="tm">${l ? fmtShort(l.at) : ''}</span></div><div class="ir"><span class="pv">${esc(preview(c))}</span>${at ? `<span class="badge at">@</span>` : ''}${n ? `<span class="badge">${n}</span>` : ''}</div></div></div>`;
+    const pinned = pinnedC.includes(c);
+    return `<div class="item ${c === current ? 'on' : ''} ${n ? 'unread' : ''}" data-conv="${esc(c)}">${convAvatar(c, '', isDM(c))}<div class="ic"><div class="ir"><b>${esc(convTitle(c))}${isNews(c) ? I.verified : ''}</b>${pinned ? `<span class="pinmark" title="Angepinnt">${I.pin}</span>` : ''}<span class="tm">${l ? fmtShort(l.at) : ''}</span></div><div class="ir"><span class="pv">${esc(l ? preview(c) : isDM(c) ? 'Angepinnt – schreib eine Nachricht' : preview(c))}</span>${at ? `<span class="badge at">@</span>` : ''}${n ? `<span class="badge">${n}</span>` : ''}</div></div></div>`;
   }).join('');
 }
 
@@ -429,12 +485,14 @@ function renderFriends() {
   if (S.outgoing.length) {
     h += `<div class="section label">Gesendet — ${S.outgoing.length}</div>` + S.outgoing.map((u) => `<div class="item" data-profile="${esc(u)}">${avatar(u)}<div class="ic"><div class="ir"><b>${esc(dn(u))}</b></div><div class="ir"><span class="pv">wartet auf Antwort</span></div></div><div class="acts2"><button class="ibtn" data-dec="${esc(u)}" title="Zurückziehen">${I.x}</button></div></div>`).join('');
   }
-  const on = S.friends.filter(isOn), off = S.friends.filter((f) => !isOn(f));
+  const pins = S.pinned.filter((f) => S.friends.includes(f));
+  const on = S.friends.filter((f) => isOn(f) && !pins.includes(f)), off = S.friends.filter((f) => !isOn(f) && !pins.includes(f));
   const fItem = (u) => {
     const p = P(u), st = stOf(u);
     const sub = p.customStatus ? esc(p.customStatus) : STATUS[st][0] + (p.pronouns ? ' · ' + esc(p.pronouns) : '');
-    return `<div class="item" data-chat="${esc(u)}">${avatar(u, '', true)}<div class="ic"><div class="ir"><b>${esc(dn(u))}</b></div><div class="ir"><span class="pv">${sub}</span></div></div><div class="acts2"><button class="ibtn" data-chat="${esc(u)}" title="Nachricht">${I.chat}</button><button class="ibtn" data-profile="${esc(u)}" title="Profil">${I.more}</button></div></div>`;
+    return `<div class="item" data-chat="${esc(u)}">${avatar(u, '', true)}<div class="ic"><div class="ir"><b>${esc(dn(u))}</b></div><div class="ir"><span class="pv">${sub}</span></div></div><div class="acts2"><button class="ibtn ${pins.includes(u) ? 'on' : ''}" data-pinfriend="${esc(u)}" title="${pins.includes(u) ? 'Loslösen' : 'Anpinnen'}">${I.pin}</button><button class="ibtn" data-chat="${esc(u)}" title="Nachricht">${I.chat}</button><button class="ibtn" data-profile="${esc(u)}" title="Profil">${I.more}</button></div></div>`;
   };
+  if (pins.length) h += `<div class="section label">📌 Angepinnt — ${pins.length}</div>` + pins.map(fItem).join('');
   if (on.length) h += `<div class="section label">Online — ${on.length}</div>` + on.map(fItem).join('');
   if (off.length) h += `<div class="section label">Offline — ${off.length}</div>` + off.map(fItem).join('');
   if (!S.friends.length && !q && !S.incoming.length && !S.outgoing.length) h += `<div class="emptylist">Noch keine Freunde.<br>Gib oben einen Username ein, um jemanden zu adden.</div>`;
@@ -458,17 +516,21 @@ function setView(v) {
 /* ================= Chat ================= */
 function openConv(c) {
   if (!canOpen(c)) return;
-  if (current !== c) { msgs = []; $('text').value = ''; clearTray(); closeMention(); if (rec) stopRec(false); $('msgs').innerHTML = ''; }
+  if (current !== c) { msgs = []; $('text').value = ''; clearTray(); closeMention(); setReply(null); if (rec) stopRec(false); $('msgs').innerHTML = ''; }
+  if (isChan(c)) { const gid = c.split(':')[1]; lastChan[gid] = c; store.set('lastChan', JSON.stringify(lastChan)); if (view !== 'g:' + gid) { view = 'g:' + gid; } }
   current = c; unread[c] = 0; unreadAt[c] = 0; bumpTitle(); markRead(true);
-  if (view !== 'chats' && window.innerWidth > 760) { view = 'chats'; $('search').value = ''; }
+  if (!isChan(c) && view !== 'chats' && window.innerWidth > 760) { view = 'chats'; $('search').value = ''; }
   if (window.innerWidth <= 760 || panelMode === 'pins') panelMode = null;
   $('welcome').classList.add('hidden'); $('chat').classList.remove('hidden'); $('app').classList.add('chatting');
   renderHead(); renderMsgs(true); renderPinBar(); renderTyping(); renderRail(); renderSide(); updateSendBtn();
   if (panelMode) renderPanel(); else $('panel').classList.add('hidden');
   reloadHistory();
   autoGrow();
+  if (typeof updateCallPill === 'function') updateCallPill();
+  if (typeof closePicker === 'function') closePicker();
   if (window.innerWidth > 760) $('text').focus();
 }
+let lastChan = {}; try { lastChan = JSON.parse(store.get('lastChan') || '{}'); } catch {}
 function reloadHistory() {
   const c = current;
   socket.emit('history', { conv: c }, (list) => {
@@ -498,6 +560,7 @@ function closeChat(keepView) {
   if (rec) stopRec(false);
   $('chat').classList.add('hidden'); $('welcome').classList.remove('hidden'); $('app').classList.remove('chatting'); $('panel').classList.add('hidden');
   if (!keepView) renderSide();
+  if (typeof updateCallPill === 'function') updateCallPill();
 }
 
 function renderHead() {
@@ -506,15 +569,21 @@ function renderHead() {
   const pins = msgs.filter((m) => m.pinned && !m.deleted).length;
   let st = '';
   if (isNote(current)) st = 'Nur für dich sichtbar';
+  else if (isNews(current)) st = 'Offizielle Mitteilungen vom Connecta-Team';
+  else if (isChan(current)) { const { g, ch } = chanOf(current); st = esc(ch.topic || g.name); }
   else if (dm) { const s = stOf(u); st = `<span class="sdot s-${s}"></span>${esc(P(u).customStatus || STATUS[s][0])}`; }
   else if (g) { const on = g.members.filter((m) => m !== S.me && isOn(m)).length; st = esc(`${g.members.length} Mitglieder${on ? ` · ${on} online` : ''}`); }
   $('chatHead').innerHTML = `
     <button class="ibtn back" data-back>${I.back}</button>
-    <div class="who-box" data-info>${convAvatar(current, '', dm)}<div style="min-width:0"><div class="t">${esc(convTitle(current))}${dm ? badgeHtml(u, true) : ''}</div><div class="st">${st}</div></div></div>
+    <div class="who-box" data-info>${convAvatar(current, '', dm)}<div style="min-width:0"><div class="t">${isChan(current) ? '<span class="hashpre">#</span>' : ''}${esc(convTitle(current))}${dm ? badgeHtml(u, true) : ''}${isNews(current) ? I.verified : ''}</div><div class="st">${st}</div></div></div>
     ${dm ? `<button class="ibtn" data-callaudio title="Anrufen">${I.phone}</button><button class="ibtn" data-callvideo title="Videoanruf">${I.video}</button>` : ''}
-    <button class="ibtn ${panelMode === 'pins' ? 'on' : ''}" data-pins title="Angepinnte Nachrichten">${I.pin}${pins ? `<span class="badge">${pins}</span>` : ''}</button>
-    <button class="ibtn ${panelMode === 'info' ? 'on' : ''}" data-info title="${dm ? 'Profil' : isNote(current) ? 'Info' : 'Gruppeninfo'}">${I.info}</button>`;
-  $('text').placeholder = isNote(current) ? 'Notiz schreiben…' : 'Nachricht schreiben…';
+    ${isNews(current) ? '' : `<button class="ibtn ${panelMode === 'pins' ? 'on' : ''}" data-pins title="Angepinnte Nachrichten">${I.pin}${pins ? `<span class="badge">${pins}</span>` : ''}</button>`}
+    <button class="ibtn ${panelMode === 'info' ? 'on' : ''}" data-info title="${dm ? 'Profil' : isChan(current) ? 'Mitglieder' : isNote(current) || isNews(current) ? 'Info' : 'Gruppeninfo'}">${isChan(current) ? I.users : I.info}</button>`;
+  $('text').placeholder = isNote(current) ? 'Notiz schreiben…' : isChan(current) ? `Nachricht an #${convTitle(current)}` : `Nachricht an ${convTitle(current)}`;
+  const can = canSendHere();
+  $('composer').classList.toggle('hidden', !can || !!rec);
+  $('roBar').classList.toggle('hidden', can);
+  $('roBar').textContent = isNews(current) ? '📢 Hier schreibt nur das Connecta-Team. Antworten ist nicht möglich.' : '🔒 Du hast in diesem Kanal keine Berechtigung zu schreiben.';
 }
 
 function renderPinBar() {
@@ -550,6 +619,7 @@ function attHtml(m) {
       return `<img class="att-img" data-lb="${a.id}" src="${mediaUrl(a.id)}" loading="lazy" alt=""${style}>`;
     }).join('') + `</div>`;
   }
+  atts.filter((a) => a.kind === 'gif').forEach((a) => { h += `<div class="atts"><img class="att-img gif" src="${esc(a.url)}" loading="lazy" alt="GIF"${a.w && a.h ? ` style="aspect-ratio:${a.w}/${a.h};width:${Math.min(300, a.w)}px"` : ''}></div>`; });
   atts.filter((a) => a.kind === 'video').forEach((a) => { h += `<div class="atts"><video class="att-vid" src="${mediaUrl(a.id)}#t=0.1" controls preload="metadata" playsinline></video></div>`; });
   atts.filter((a) => a.kind === 'audio' || a.kind === 'voice').forEach((a) => { h += aplayerHtml(a); });
   return h;
@@ -557,11 +627,14 @@ function attHtml(m) {
 
 function msgItems() {
   const items = [];
-  const group = isGroup(current), g = grp(current), note = isNote(current);
+  const chan = isChan(current), news = isNews(current);
+  const group = isGroup(current) || chan, g = grp(current), note = isNote(current);
+  const cg = chan ? chanOf(current).g : null;
+  const modMsgs = chan && gHas(cg, 'MANAGE_MESSAGES');
   const reads = S.reads[current] || {};
-  const others = membersOf(current).filter((u) => u !== S.me);
+  const others = chan || news ? [] : membersOf(current).filter((u) => u !== S.me);
   if (hasMore[current]) items.push(['lm', `<div class="loadmore">Ältere Nachrichten werden geladen…</div>`]);
-  if (!msgs.length) items.push(['first', `<div class="first">${convAvatar(current, 'l')}<b style="font-size:20px;color:var(--text)">${esc(convTitle(current))}</b>Das ist der Anfang eures Chats. Sag Hallo 👋</div>`]);
+  if (!msgs.length || (chan && !hasMore[current])) items.push(['first', chan ? `<div class="first chanfirst">${convAvatar(current, 'l')}<b style="font-size:22px;color:var(--text)">Willkommen in #${esc(convTitle(current))}!</b>Das ist der Anfang dieses Kanals${chanOf(current).ch.topic ? ' – ' + esc(chanOf(current).ch.topic) : ''}.</div>` : news ? `<div class="first">${officialAv('l')}<b style="font-size:20px;color:var(--text)">Connecta</b>Hier erscheinen Updates und Infos vom Connecta-Team.</div>` : `<div class="first">${convAvatar(current, 'l')}<b style="font-size:20px;color:var(--text)">${esc(convTitle(current))}</b>Das ist der Anfang eures Chats. Sag Hallo 👋</div>`]);
   let prev = null, lastDay = '';
   for (const m of msgs) {
     const day = dayKey(m.at);
@@ -570,7 +643,8 @@ function msgItems() {
     const mine = m.from === S.me;
     if (!mine && isBlocked(m.from) && !revealed.has(m.id)) { items.push(['b' + m.id, `<div class="sys blockedmsg" data-reveal="${m.id}">🚫 Nachricht von einer blockierten Person – <u>anzeigen</u></div>`]); prev = null; continue; }
     const cont = prev && prev.from === m.from && m.at - prev.at < 5 * 60e3;
-    const canDel = mine || (g && g.owner === S.me);
+    const canDel = !news && (mine || (g && g.owner === S.me) || modMsgs);
+    const canPin = !news && (!chan || modMsgs);
     const mentioned = !mine && (m.mentions || []).includes(S.me);
     const media = !m.deleted && (m.att || []).length;
     let tick = '';
@@ -579,22 +653,26 @@ function msgItems() {
       tick = readBy && readBy === others.length ? `<span class="ticks read" title="Gelesen">${TICK2}</span>` : readBy ? `<span class="ticks" title="Von ${readBy} gelesen">${TICK2}</span>` : `<span class="ticks" title="Gesendet">${TICK1}</span>`;
     }
     const meta = `<span class="meta">${m.pinned ? '📌 ' : ''}${fmtTime(m.at)}${tick}</span>`;
-    const who = group && !mine && !cont ? `<div class="who" data-profile="${esc(m.from)}">${esc(dn(m.from))}</div>` : '';
+    const rc = chan ? roleColor(cg, m.from) : null;
+    let who = group && !mine && !cont ? `<div class="who" data-profile="${esc(m.from)}"${rc ? ` style="color:${rc}"` : ''}>${esc(dn(m.from))}${chan ? badgeHtml(m.from, true) : ''}${chan && cg.owner === m.from ? `<span class="crown" title="Server-Besitzer">${I.crown}</span>` : ''}</div>` : '';
+    if (news) who = `<div class="who official">Connecta ${I.verified}</div>${m.title ? `<div class="ntitle">${esc(m.title)}</div>` : ''}`;
+    const quote = m.reply && !m.deleted ? `<div class="quote" data-jump="${m.reply.id}"><b>${esc(dn(m.reply.from))}</b>${esc(m.reply.text || ({ image: '📷 Foto', video: '🎥 Video', voice: '🎤 Sprachnachricht', audio: '🎵 Audio', gif: '🎞️ GIF' }[m.reply.kind] || ''))}</div>` : '';
+    const storyQ = m.story && !m.deleted ? `<div class="storyq"><div class="sq-thumb" style="${m.story.kind === 'text' ? `background:${esc(m.story.bg || '#8b4dff')}` : ''}">${m.story.kind === 'image' ? `<img src="${mediaUrl(m.story.media)}" alt="">` : m.story.kind === 'video' ? '🎥' : esc((m.story.text || '').slice(0, 14))}</div><span>${m.story.user === S.me ? 'Antwort auf deine Story' : 'Du hast auf die Story geantwortet'}</span></div>` : '';
     let body;
     if (m.deleted) body = `🚫 ${mine ? 'Du hast diese Nachricht gelöscht' : 'Diese Nachricht wurde gelöscht'}${meta}`;
-    else if (media) body = (who ? `<div class="txt">${who}</div>` : '') + attHtml(m) + `<div class="txt">${m.text ? fmtText(m.text) : ''}${meta}</div>`;
-    else body = who + fmtText(m.text) + meta;
-    const html = `<div class="row ${mine ? 'out' : 'in'} ${cont ? 'cont' : ''} ${m.pinned ? 'pinned' : ''} ${mentioned ? 'mentioned' : ''}" data-id="${m.id}">`
+    else if (media) body = (who || quote ? `<div class="txt">${who}${quote}</div>` : '') + attHtml(m) + `<div class="txt">${m.text ? fmtText(m.text) : ''}${meta}</div>`;
+    else body = who + storyQ + quote + fmtText(m.text) + meta;
+    const html = `<div class="row ${mine ? 'out' : 'in'} ${cont ? 'cont' : ''} ${m.pinned ? 'pinned' : ''} ${mentioned ? 'mentioned' : ''} ${news ? 'news' : ''}" data-id="${m.id}">`
       + (group && !mine ? `<div class="mav">${cont ? '' : `<span data-profile="${esc(m.from)}">${avatar(m.from, 's')}</span>`}</div>` : '')
-      + `<div class="bubble ${m.deleted ? 'del' : ''} ${media ? 'media' : ''}">${body}</div>`
-      + (m.deleted ? '' : `<div class="acts"><button data-pin="${m.id}" title="${m.pinned ? 'Loslösen' : 'Anpinnen'}">${I.pin}</button>${m.text ? `<button data-copy="${m.id}" title="Kopieren">${I.copy}</button>` : ''}${!mine ? `<button data-reply-mention="${esc(m.from)}" title="Erwähnen">@</button>` : ''}${canDel ? `<button class="d" data-del="${m.id}" title="Löschen">${I.trash}</button>` : ''}</div>`)
+      + `<div class="bubble ${m.deleted ? 'del' : ''} ${media ? 'media' : ''} ${news ? 'official' : ''}">${body}</div>`
+      + (m.deleted ? '' : `<div class="acts">${canSendHere() ? `<button data-reply="${m.id}" title="Antworten">${I.reply}</button>` : ''}${canPin ? `<button data-pin="${m.id}" title="${m.pinned ? 'Loslösen' : 'Anpinnen'}">${I.pin}</button>` : ''}${m.text ? `<button data-copy="${m.id}" title="Kopieren">${I.copy}</button>` : ''}${!mine && !news && canSendHere() ? `<button data-reply-mention="${esc(m.from)}" title="Erwähnen">@</button>` : ''}${!mine && !news ? `<button data-reportmsg="${m.id}" title="Melden">${I.flag}</button>` : ''}${canDel ? `<button class="d" data-del="${m.id}" title="Löschen">${I.trash}</button>` : ''}</div>`)
       + `</div>`;
     items.push(['m' + m.id, html]);
     prev = m;
   }
   // „Gesehen“ unter der letzten Nachricht
   const lastM = [...msgs].reverse().find((m) => !m.system);
-  if (lastM && !note) {
+  if (lastM && !note && !chan && !news) {
     const seen = others.filter((u) => u !== lastM.from && (reads[u] || 0) >= lastM.at && !isBlocked(u));
     if (seen.length) {
       const html = isDM(current)
@@ -741,10 +819,15 @@ async function sendMessage() {
     } catch (e) { toast('Senden fehlgeschlagen', e.message); sending = false; $('sendBtn').disabled = false; renderTray(); return; }
     sending = false; $('sendBtn').disabled = false; clearTray();
   }
-  socket.emit('message', { conv, text, att }, (r) => r && r.error && toast(r.error));
-  if (conv === current) { $('text').value = ''; autoGrow(); updateSendBtn(); closeMention(); $('text').focus(); }
+  socket.emit('message', { conv, text, att, reply: replyTo && replyTo.conv === conv ? replyTo.id : null }, (r) => r && r.error && toast(r.error));
+  if (conv === current) { $('text').value = ''; autoGrow(); updateSendBtn(); closeMention(); setReply(null); $('text').focus(); }
 }
 $('composer').onsubmit = (e) => { e.preventDefault(); sendMessage(); };
+function setReply(m) {
+  replyTo = m ? { id: m.id, conv: current } : null;
+  $('replyBar').classList.toggle('hidden', !m);
+  if (m) { $('replyBar').innerHTML = `${I.reply}<div class="rb-t">Antwort an <b>${esc(dn(m.from))}</b><span>${esc(msgLabel(m))}</span></div><button type="button" class="ibtn" data-replycancel>${I.x}</button>`; $('text').focus(); }
+}
 $('sendBtn').addEventListener('click', (e) => { if ($('sendBtn').type === 'button') { e.preventDefault(); startRec(); } });
 let lastTyping = 0;
 $('text').addEventListener('input', () => {
@@ -773,7 +856,7 @@ function updateMention() {
   mStart = before.length - m[2].length - 1;
   const cands = membersOf(current).filter((u) => u !== S.me);
   mList = cands.filter((u) => u.includes(q) || dn(u).toLowerCase().includes(q)).slice(0, 8);
-  if (isGroup(current) && 'everyone'.startsWith(q)) mList.push('everyone');
+  if ((isGroup(current) || (isChan(current) && gHas(chanOf(current).g, 'MENTION_EVERYONE'))) && 'everyone'.startsWith(q)) mList.push('everyone');
   if (!mList.length) return closeMention();
   mSel = Math.min(mSel, mList.length - 1);
   renderMention();
@@ -862,6 +945,7 @@ function profileCard(u, src = {}) {
     ${p.pronouns ? `<span class="chip">${esc(p.pronouns)}</span>` : ''}
     ${p.bio ? `<div class="pc-sec"><div class="label">Über mich</div><p>${fmtText(p.bio)}</p></div>` : ''}
     ${!src.preview ? `<div class="pc-sec"><div class="label">Status</div><p><span class="sdot s-${st}"></span>${STATUS[st][0]}</p></div>` : ''}
+    ${!src.preview && p.created ? `<div class="pc-sec"><div class="label">Mitglied seit</div><p>${new Date(p.created).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>` : ''}
   </div></div>`;
 }
 function mediaSection() {
@@ -878,6 +962,12 @@ function renderPanel() {
     const pins = msgs.filter((m) => m.pinned && !m.deleted).reverse();
     body = pins.length ? pins.map((m) => `<div class="pinitem"><div class="ph">${avatar(m.from, 's')}<b>${esc(dn(m.from))}</b><span>${fmtShort(m.at)}</span></div><p>${m.text ? fmtText(m.text) : esc(msgLabel(m))}</p><div class="pa"><button class="btn small ghost" data-jump="${m.id}">Zur Nachricht</button><button class="btn small ghost" data-pin="${m.id}">Loslösen</button></div></div>`).join('')
       : `<div class="emptylist">📌<br>Noch keine angepinnten Nachrichten.<br>Fahre über eine Nachricht und klicke auf die Pinnnadel.</div>`;
+  } else if (isChan(current)) {
+    title = 'Mitglieder';
+    body = guildMembersHtml(chanOf(current).g);
+  } else if (isNews(current)) {
+    title = 'Connecta';
+    body = `<div class="ghead">${officialAv('xl')}<div class="gn">Connecta ${I.verified}</div><div class="pc-user">Offizieller Account</div></div><p class="muted" style="font-size:14px">Hier bekommst du Updates, neue Funktionen und wichtige Infos direkt vom Connecta-Team. Dieser Chat ist nur zum Lesen.</p>` + mediaSection();
   } else if (isNote(current)) {
     title = 'Notizen';
     body = `<div class="ghead">${convAvatar(current, 'xl')}<div class="gn">Notizen</div><div class="pc-user">Dein privater Chat mit dir selbst</div></div><p class="muted" style="font-size:14px;margin-bottom:10px">Speichere hier Ideen, Links, Bilder oder Sprachnotizen. Niemand außer dir kann diesen Chat sehen. Mit 📌 kannst du Wichtiges anpinnen.</p>` + mediaSection();
@@ -926,10 +1016,10 @@ document.addEventListener('mousedown', (e) => {
 
 /* ================= Modale ================= */
 function openModal(html, wide) {
-  $('modal').innerHTML = `<div class="mbox ${wide ? 'wide' : ''}">${html}</div>`;
+  $('modal').innerHTML = `<div class="mbox ${wide === true ? 'wide' : wide || ''}"><div class="mscroll">${html}</div></div>`;
   $('modal').classList.remove('hidden');
 }
-function closeModal() { $('modal').classList.add('hidden'); $('modal').innerHTML = ''; }
+function closeModal() { $('modal').classList.add('hidden'); $('modal').innerHTML = ''; if (typeof stopMicTest === 'function') stopMicTest(); }
 $('modal').addEventListener('mousedown', (e) => { if (e.target === $('modal')) closeModal(); });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
@@ -946,18 +1036,21 @@ function openProfile(u) {
   if (u === S.me) return openSettings('profile');
   const isF = S.friends.includes(u), inc = S.incoming.includes(u), out = S.outgoing.includes(u);
   let btn;
-  if (isF) btn = `<div class="pbtns row2"><button class="btn" data-chat="${esc(u)}">${I.chat} Nachricht</button><button class="btn ghost" data-callto="${esc(u)}">${I.phone} Anrufen</button></div>`;
+  if (isF) btn = `<div class="pbtns row2"><button class="btn" data-chat="${esc(u)}">${I.chat} Nachricht</button><button class="btn ghost" data-callto="${esc(u)}">${I.phone} Anrufen</button></div><div class="pbtns"><button class="btn ghost" data-pinfriend="${esc(u)}">${I.pin} ${S.pinned.includes(u) ? 'Nicht mehr anpinnen' : 'Freund anpinnen'}</button></div>`;
   else if (inc) btn = `<div class="pbtns"><button class="btn" data-acc="${esc(u)}">Anfrage annehmen</button></div>`;
   else if (out) btn = `<div class="pbtns"><button class="btn ghost" disabled>Anfrage gesendet</button></div>`;
   else btn = `<div class="pbtns"><button class="btn" data-add="${esc(u)}">${I.userPlus} Freund hinzufügen</button></div>`;
   if (isBlocked(u)) btn = `<div class="pbtns"><button class="btn ghost" data-unblock="${esc(u)}">Blockierung aufheben</button></div>`;
-  else btn += `<div class="pbtns"><button class="btn danger" data-block="${esc(u)}">${I.block} Blockieren</button></div>`;
+  else btn += `<div class="pbtns row2"><button class="btn danger" data-report="${esc(u)}">${I.flag} Melden</button><button class="btn danger" data-block="${esc(u)}">${I.block} Blockieren</button></div>`;
+  const gx = isChan(current) && typeof guildProfileHtml === 'function' ? guildProfileHtml(chanOf(current).g, u) : '';
+  btn = gx + btn;
   let own = '';
   if (S.isOwner) {
     const has = P(u).badges || [];
     own = `<div class="pc-sec"><div class="label" style="margin-bottom:8px">Abzeichen vergeben (nur Owner)</div><div class="bgrant">${Object.entries(BADGES).map(([k, b]) => `<button class="bgr ${has.includes(k) ? 'on' : ''}" data-grant="${k}" data-grantuser="${esc(u)}"><span class="bdg" style="background:${b.bg}">${b.svg}</span>${b.name}</button>`).join('')}</div></div>`;
   }
   openModal(`${mHead('Profil')}<div class="mbody">${profileCard(u)}${btn}${own}</div>`);
+  if (!S.people[u] || !S.people[u].created) socket.emit('profile:get', u, (p) => { if (p && !S.people[u]) { S.people[u] = p; openProfile(u); } });
 }
 
 // Lightbox für Bilder
@@ -977,7 +1070,8 @@ function openSettings(tab = 'profile') {
   renderSettings();
 }
 function renderSettings() {
-  const T = [['profile', 'Mein Profil'], ['look', 'Darstellung'], ['sounds', 'Soundboard'], ['notify', 'Benachrichtigungen'], ['privacy', 'Privatsphäre'], ['account', 'Konto']];
+  if (sTab !== 'voice' && typeof stopMicTest === 'function') stopMicTest();
+  const T = [['profile', 'Mein Profil'], ['look', 'Darstellung'], ['voice', 'Sprache & Video'], ['sounds', 'Soundboard'], ['notify', 'Benachrichtigungen'], ['privacy', 'Privatsphäre'], ['account', 'Konto']];
   const tabs = `<div class="stabs">${T.map(([k, t]) => `<button class="${sTab === k ? 'on' : ''}" data-stab="${k}">${t}</button>`).join('')}</div>`;
   let body = '';
   const p = P(S.me);
@@ -1030,12 +1124,16 @@ function renderSettings() {
       <div class="label" style="margin:20px 0 8px">Blockierte Nutzer — ${S.blocked.length}</div>
       ${S.blocked.length ? S.blocked.map((u) => `<div class="item" style="cursor:default">${avatar(u)}<div class="ic"><div class="ir"><b>${esc(dn(u))}</b></div><div class="ir"><span class="pv">@${esc(u)}</span></div></div><button class="btn small ghost" data-unblock="${esc(u)}">Aufheben</button></div>`).join('') : `<p class="muted" style="font-size:14px">Du hast niemanden blockiert.</p>`}
       <p class="muted" style="font-size:14px;margin-top:14px">Blockierte Personen können dir keine Anfragen schicken, dich nicht anrufen und ihre Nachrichten in Gruppen werden ausgeblendet.</p>`;
+  } else if (sTab === 'voice') {
+    body = voiceSettingsHtml();
   } else {
     body = `<div class="item" style="cursor:default">${avatar(S.me, 'm', true)}<div class="ic"><div class="ir"><b>${esc(dn(S.me))}</b></div><div class="ir"><span class="pv">@${esc(S.me)}</span></div></div></div>
       <p class="muted" style="margin:12px 0 18px;font-size:14px">Dein Username kann nicht geändert werden. Deinen Anzeigenamen kannst du unter „Mein Profil“ anpassen.</p>
-      <button class="btn danger block" data-logout>${I.logout} Abmelden</button>`;
+      <div class="pbtns"><a class="btn ghost" href="/tos" target="_blank" rel="noopener">📜 Nutzungsbedingungen</a></div>
+      <div class="pbtns"><button class="btn danger block" data-logout>${I.logout} Abmelden</button></div>`;
   }
-  openModal(`${mHead('Einstellungen')}${tabs}<div class="mbody">${body}</div>`, sTab === 'profile' || sTab === 'look' || sTab === 'sounds');
+  openModal(`${mHead('Einstellungen')}${tabs}<div class="mbody">${body}</div>`, sTab === 'profile' || sTab === 'look' || sTab === 'sounds' || sTab === 'voice');
+  if (sTab === 'voice') voiceSettingsMount();
   if (sTab === 'profile') {
     const upd = () => { draft.displayName = $('fName').value; draft.pronouns = $('fPron').value; draft.bio = $('fBio').value; draft.customStatus = $('fCs').value; $('bioCnt').textContent = draft.bio.length + '/190'; $('pPrev').innerHTML = previewCard(); };
     ['fName', 'fPron', 'fBio', 'fCs'].forEach((id) => $(id).addEventListener('input', upd));
@@ -1105,7 +1203,7 @@ function renderGroupModal(keepName) {
   const list = cands.filter((f) => !q || (dn(f) + f).toLowerCase().includes(q.toLowerCase()));
   openModal(`${mHead(gMode === 'add' ? 'Mitglieder hinzufügen' : 'Neue Gruppe')}<div class="mbody">
     ${gMode === 'create' ? `<div class="gimg"><span data-gpick title="Gruppenbild wählen">${gAvatar({ name: name || '📷' }, 'l', gImg && gImg.url)}</span><div style="flex:1"><div class="field" style="margin:0"><span class="label">Gruppenname</span><input class="input" id="gNew" maxlength="40" placeholder="z. B. Die Crew 💜" value="${esc(name)}"></div></div></div>` : ''}
-    <span class="label">Freunde auswählen${gSel.size ? ` — ${gSel.size} ausgewählt` : ''}</span>
+    <span class="label">Freunde auswählen — ${gSel.size + (g ? g.members.length : 1)}/${S.config.maxGroup} Personen</span>
     ${gSel.size ? `<div class="chips" style="margin-top:8px">${[...gSel].map((u) => `<span>${esc(dn(u))}</span>`).join('')}</div>` : ''}
     <div class="searchbox" style="margin:10px 0 0">${I.search}<input class="input" id="gSearch" placeholder="Freunde suchen" value="${esc(q)}"></div>
     <div class="picklist">${list.length ? list.map((u) => `<div class="pick ${gSel.has(u) ? 'on' : ''}" data-gtoggle="${esc(u)}">${avatar(u, 's', true)}<b>${esc(dn(u))}</b><span class="check">${I.check}</span></div>`).join('') : `<div class="emptylist">${cands.length ? 'Niemand gefunden.' : 'Alle deine Freunde sind schon in der Gruppe.'}</div>`}</div>
@@ -1116,7 +1214,7 @@ function renderGroupModal(keepName) {
 }
 
 /* ================= Klicks ================= */
-const ACTIONS = '[data-view],[data-conv],[data-chat],[data-profile],[data-add],[data-acc],[data-dec],[data-pin],[data-del],[data-copy],[data-jump],[data-back],[data-info],[data-pins],[data-closepanel],[data-callaudio],[data-callvideo],[data-callto],[data-unfriend],[data-grename],[data-gadd],[data-gleave],[data-kick],[data-gimg],[data-closemodal],[data-stab],[data-theme-pick],[data-font-pick],[data-pickav],[data-pickbn],[data-rmav],[data-rmbn],[data-saveprofile],[data-logout],[data-gtoggle],[data-gpick],[data-gsubmit],[data-lb],[data-closelb],[data-play],[data-seek],[data-rmfile],[data-mention],[data-reply-mention],[data-setstatus],[data-opensettings],[data-pref],[data-sbpreview],[data-sbpreviewmedia],[data-sbremove],[data-sbadd],[data-sbplay],[data-sbmanage],[data-reccancel],[data-recsend],[data-openvid],[data-block],[data-unblock],[data-reveal],[data-grant],[data-badgeinfo],[data-cbase],[data-preset],[data-readreceipts]';
+const ACTIONS = '[data-view],[data-conv],[data-chat],[data-profile],[data-add],[data-acc],[data-dec],[data-pin],[data-del],[data-copy],[data-jump],[data-back],[data-info],[data-pins],[data-closepanel],[data-callaudio],[data-callvideo],[data-callto],[data-unfriend],[data-grename],[data-gadd],[data-gleave],[data-kick],[data-gimg],[data-closemodal],[data-stab],[data-theme-pick],[data-font-pick],[data-pickav],[data-pickbn],[data-rmav],[data-rmbn],[data-saveprofile],[data-logout],[data-gtoggle],[data-gpick],[data-gsubmit],[data-lb],[data-closelb],[data-play],[data-seek],[data-rmfile],[data-mention],[data-reply-mention],[data-setstatus],[data-opensettings],[data-pref],[data-sbpreview],[data-sbpreviewmedia],[data-sbremove],[data-sbadd],[data-sbplay],[data-sbmanage],[data-reccancel],[data-recsend],[data-openvid],[data-block],[data-unblock],[data-reveal],[data-grant],[data-badgeinfo],[data-cbase],[data-preset],[data-readreceipts],[data-reply],[data-replycancel],[data-reportmsg],[data-report],[data-pinfriend]';
 document.addEventListener('click', async (e) => {
   Sounds.unlock && (() => { try { Sounds.unlock(); } catch {} })();
   const t = e.target.closest(ACTIONS);
@@ -1125,6 +1223,11 @@ document.addEventListener('click', async (e) => {
   if (!t) { if (row && e.target.closest('.bubble') && !e.target.closest('a,video')) row.classList.toggle('sel'); return; }
   const d = t.dataset;
   if ('badgeinfo' in d) { e.stopPropagation(); return toast(BADGES[d.badgeinfo].name); }
+  if ('reply' in d) { const m = msgs.find((x) => x.id === d.reply); if (m) setReply(m); return; }
+  if ('replycancel' in d) return setReply(null);
+  if ('reportmsg' in d) return openReport({ msgId: d.reportmsg });
+  if ('report' in d) return openReport({ user: d.report });
+  if ('pinfriend' in d) { e.stopPropagation(); const on = !S.pinned.includes(d.pinfriend); return socket.emit('friend:pin', { user: d.pinfriend, on }, (r) => { toast(r.error || (on ? `${dn(d.pinfriend)} angepinnt 📌` : 'Nicht mehr angepinnt')); if (!$('modal').classList.contains('hidden') && !r.error) closeModal(); }); }
   if ('block' in d) {
     if (!confirm(`${dn(d.block)} blockieren? Ihr seid dann keine Freunde mehr und ${dn(d.block)} kann dir keine Anfragen schicken oder dich anrufen.`)) return;
     return socket.emit('block', d.block, (r) => { toast(r.error || `${dn(d.block)} wurde blockiert`); closeModal(); });
@@ -1176,7 +1279,11 @@ document.addEventListener('click', async (e) => {
   if ('rmbn' in d) { draft.banner = null; return renderSettings(); }
   if ('saveprofile' in d) return saveProfile(t);
   if ('logout' in d) return logout();
-  if ('gtoggle' in d) { gSel.has(d.gtoggle) ? gSel.delete(d.gtoggle) : gSel.add(d.gtoggle); return renderGroupModal(($('gNew') || {}).value); }
+  if ('gtoggle' in d) {
+    const gg = gMode === 'add' ? grp(current) : null;
+    if (!gSel.has(d.gtoggle) && gSel.size + (gg ? gg.members.length : 1) >= S.config.maxGroup) return toast(`Gruppen dürfen höchstens ${S.config.maxGroup} Personen haben.`);
+    gSel.has(d.gtoggle) ? gSel.delete(d.gtoggle) : gSel.add(d.gtoggle); return renderGroupModal(($('gNew') || {}).value);
+  }
   if ('gpick' in d) { const name = $('gNew').value; gImg = await pickImage(256, 256); return renderGroupModal(name); }
   if ('gsubmit' in d) {
     if (gMode === 'add') return socket.emit('group:add', { id: current, users: [...gSel] }, (r) => { toast(r.error || 'Mitglieder hinzugefügt'); if (!r.error) closeModal(); });
@@ -1222,135 +1329,21 @@ $('rbMe').onclick = toggleStatusMenu;
 document.addEventListener('click', (e) => { if (e.target.closest('#sideGroup')) openGroupModal('create'); });
 function flashTile(t) { t.classList.remove('play'); void t.offsetWidth; t.classList.add('play'); }
 
-/* ================= Anrufe (WebRTC, 1:1) ================= */
-const ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
-let pc = null, localStream = null, peer = null, pendingOffer = null, pendingIce = [], timer, callVideo = false;
-const inCall = () => !$('call').classList.contains('hidden');
-$('acceptCall').innerHTML = I.phone; $('muteBtn').innerHTML = I.mic; $('camBtn').innerHTML = I.video; $('hangup').innerHTML = I.x; $('sbBtn').innerHTML = I.sound;
-
-function showCall(name, status, video) {
-  peer = name; callVideo = video;
-  $('call').classList.remove('hidden');
-  $('callAv').innerHTML = avatar(name, 'xl');
-  $('callName').textContent = dn(name);
-  $('callStatus').textContent = status;
-  $('videos').classList.toggle('hidden', !video);
-  $('callAv').classList.toggle('hidden', video);
-  $('camBtn').classList.toggle('hidden', !video);
-}
-async function getMedia(video) {
-  localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video });
-  $('localV').srcObject = localStream;
-}
-function makePC() {
-  pc = new RTCPeerConnection(ICE);
-  localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
-  pc.onicecandidate = (e) => e.candidate && socket.emit('call:ice', { to: peer, candidate: e.candidate });
-  pc.ontrack = (e) => { if (callVideo) $('remoteV').srcObject = e.streams[0]; else $('remoteA').srcObject = e.streams[0]; };
-  pc.onconnectionstatechange = () => {
-    if (!pc) return;
-    if (pc.connectionState === 'connected') { $('callAv').classList.remove('pulse'); startTimer(); }
-    if (['failed', 'disconnected'].includes(pc.connectionState)) endCall(true, 'Verbindung verloren');
+/* ================= Melden ================= */
+const REPORT_REASONS = [['spam', 'Spam oder Werbung'], ['harassment', 'Belästigung oder Mobbing'], ['inappropriate', 'Unangemessene Inhalte'], ['scam', 'Betrug oder Fake-Account'], ['other', 'Etwas anderes']];
+function openReport({ user, msgId }) {
+  const m = msgId && msgs.find((x) => x.id === msgId);
+  const who = m ? m.from : user;
+  openModal(`${mHead(m ? 'Nachricht melden' : 'Nutzer melden')}<div class="mbody">
+    <div class="item" style="cursor:default">${avatar(who, 's')}<div class="ic"><div class="ir"><b>${esc(dn(who))}</b></div><div class="ir"><span class="pv">${m ? esc(msgLabel(m)) : '@' + esc(who)}</span></div></div></div>
+    <div class="label" style="margin:14px 0 8px">Was ist das Problem?</div>
+    <div class="reasons">${REPORT_REASONS.map(([k, t], i) => `<label class="reason"><input type="radio" name="rr" value="${k}" ${i === 0 ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>
+    <div class="field" style="margin-top:12px"><span class="label">Details (optional)</span><textarea class="input" id="rText" rows="3" maxlength="500" placeholder="Beschreibe kurz, was passiert ist…"></textarea></div>
+    <p class="muted" style="font-size:13px;margin-bottom:12px">Deine Meldung geht vertraulich an das Connecta-Team. Die gemeldete Person erfährt nicht, wer sie gemeldet hat.</p>
+    <button class="btn block" id="rSend">${I.flag} Meldung senden</button>
+  </div>`);
+  $('rSend').onclick = () => {
+    const reason = (document.querySelector('input[name=rr]:checked') || {}).value;
+    socket.emit('report', { user: who, msgId: m ? m.id : null, reason, text: $('rText').value }, (r) => { if (r.error) return toast(r.error); closeModal(); toast('Danke! Deine Meldung wurde gesendet 🛡️'); });
   };
-}
-function startTimer() { const t0 = Date.now(); clearInterval(timer); timer = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('callStatus').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 1000); }
-
-async function startCall(u, video) {
-  if (pc || pendingOffer) return;
-  if (!navigator.mediaDevices) return toast('Anrufe brauchen HTTPS', 'Öffne die Seite über https:// oder localhost.');
-  try { await getMedia(video); } catch { return toast('Kein Zugriff auf Mikrofon/Kamera.'); }
-  showCall(u, 'Klingelt…', video);
-  $('callAv').classList.add('pulse');
-  $('acceptCall').classList.add('hidden');
-  makePC();
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  socket.emit('call:offer', { to: peer, sdp: offer, video });
-}
-
-function setupCalls() {
-  socket.on('call:offer', (d) => {
-    if (pc || pendingOffer) return socket.emit('call:decline', { to: d.from, busy: true });
-    pendingOffer = d;
-    showCall(d.from, d.video ? 'Eingehender Videoanruf…' : 'Eingehender Anruf…', false);
-    $('acceptCall').classList.remove('hidden');
-    $('callAv').classList.add('pulse');
-    if (S.myStatus !== 'dnd') Sounds.ring(true);
-  });
-  socket.on('call:answer', async (d) => { if (pc && d.from === peer) { await pc.setRemoteDescription(d.sdp); flushIce(); $('callStatus').textContent = 'Verbinde…'; } });
-  socket.on('call:ice', (d) => { if (d.from !== peer) return; if (pc && pc.remoteDescription) pc.addIceCandidate(d.candidate).catch(() => {}); else pendingIce.push(d.candidate); });
-  socket.on('call:end', (d) => { if (d.from === peer) endCall(true, 'Anruf beendet'); });
-  socket.on('call:decline', (d) => { if (d.from === peer) endCall(true, d.busy ? 'Besetzt' : 'Anruf abgelehnt'); });
-  socket.on('call:sound', (d) => {
-    if (d.from !== peer || !pc || !d.sound) return;
-    const s = d.sound.media ? { media: String(d.sound.media) } : Sounds.SOUNDS.find((x) => x.key === d.sound.key);
-    if (!s) return;
-    Sounds.playSound(s, PREFS.sbVol);
-    sbNote(`🔊 ${dn(d.from)}: ${d.sound.media ? (d.sound.emoji || '🔊') + ' ' + (d.sound.name || 'Sound') : s.emoji + ' ' + s.name}`);
-  });
-}
-function flushIce() { if (!pc) return; pendingIce.forEach((c) => pc.addIceCandidate(c).catch(() => {})); pendingIce = []; }
-
-$('acceptCall').onclick = async () => {
-  const d = pendingOffer; pendingOffer = null; Sounds.ring(false);
-  callVideo = d.video;
-  try { await getMedia(d.video); } catch { toast('Kein Zugriff auf Mikrofon/Kamera.'); socket.emit('call:decline', { to: d.from }); return endCall(false); }
-  showCall(d.from, 'Verbinde…', d.video);
-  $('acceptCall').classList.add('hidden');
-  makePC();
-  await pc.setRemoteDescription(d.sdp);
-  flushIce();
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-  socket.emit('call:answer', { to: peer, sdp: answer });
-};
-$('hangup').onclick = () => {
-  if (pendingOffer) { socket.emit('call:decline', { to: pendingOffer.from }); pendingOffer = null; }
-  else if (peer) socket.emit('call:end', { to: peer });
-  endCall(false);
-};
-function endCall(remote, msg) {
-  Sounds.ring(false); clearInterval(timer);
-  if (pc) { pc.close(); pc = null; }
-  if (localStream) { localStream.getTracks().forEach((t) => t.stop()); localStream = null; }
-  $('remoteV').srcObject = null; $('localV').srcObject = null; $('remoteA').srcObject = null;
-  pendingOffer = null; pendingIce = []; peer = null;
-  $('call').classList.add('hidden');
-  $('soundboard').classList.add('hidden'); $('sbBtn').classList.remove('on');
-  $('muteBtn').classList.remove('off'); $('camBtn').classList.remove('off');
-  if (remote && msg) toast(msg);
-}
-$('muteBtn').onclick = () => { if (!localStream) return; const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled; $('muteBtn').classList.toggle('off', !t.enabled); };
-$('camBtn').onclick = () => { if (!localStream) return; const t = localStream.getVideoTracks()[0]; if (!t) return; t.enabled = !t.enabled; $('camBtn').classList.toggle('off', !t.enabled); };
-
-// --- Soundboard im Anruf ---
-let sbCool = 0, sbNoteT;
-function renderSoundboard() {
-  $('soundboard').innerHTML = `<div class="sbh"><b>🔊 Soundboard</b><span class="muted" style="font-size:13px">Lautstärke</span><input type="range" class="range" id="sbVol" min="0" max="1" step="0.05" value="${PREFS.sbVol}"></div>
-    <div class="sblist">${Sounds.SOUNDS.map((s) => `<div class="sbt" data-sbplay="k:${s.key}"><span class="e">${s.emoji}</span><span class="n">${esc(s.name)}</span></div>`).join('')}</div>
-    <div class="label">Deine Sounds</div>
-    <div class="sblist">${S.sounds.map((s) => `<div class="sbt" data-sbplay="m:${esc(s.id)}"><span class="e">${esc(s.emoji)}</span><span class="n">${esc(s.name)}</span></div>`).join('')}<div class="sbt" data-sbmanage><span class="e">➕</span><span class="n">${S.sounds.length ? 'Verwalten' : 'Hinzufügen'}</span></div></div>`;
-  $('sbVol').oninput = () => { PREFS.sbVol = +$('sbVol').value; savePrefs(); };
-}
-$('sbBtn').onclick = () => {
-  const open = $('soundboard').classList.toggle('hidden');
-  $('sbBtn').classList.toggle('on', !open);
-  if (!open) renderSoundboard();
-};
-function playBoard(v, tile) {
-  if (Date.now() - sbCool < 700) return;
-  sbCool = Date.now();
-  let s, payload;
-  if (v.startsWith('k:')) { s = Sounds.SOUNDS.find((x) => x.key === v.slice(2)); if (!s) return; payload = { key: s.key }; }
-  else { const c = S.sounds.find((x) => x.id === v.slice(2)); if (!c) return; s = { media: c.media, emoji: c.emoji, name: c.name }; payload = { media: c.media, emoji: c.emoji, name: c.name }; }
-  Sounds.playSound(s, PREFS.sbVol);
-  flashTile(tile);
-  if (peer && pc) socket.emit('call:sound', { to: peer, sound: payload });
-  sbNote(`🔊 Du: ${s.emoji} ${s.name}`);
-}
-function sbNote(t) {
-  $('sbToast').textContent = t;
-  $('sbToast').classList.remove('hidden');
-  clearTimeout(sbNoteT);
-  sbNoteT = setTimeout(() => $('sbToast').classList.add('hidden'), 2500);
 }
